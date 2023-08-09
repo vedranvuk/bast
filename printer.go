@@ -35,6 +35,51 @@ func Print(w io.Writer, bast *Bast) {
 				}
 				p("\t\tVar\t\"%s\"\t(%s)\t'%s'\n", v.Name, v.Type, v.Value)
 			}
+			for _, decl := range file.Declarations {
+				var t *Type
+				t, ok := decl.(*Type)
+				if !ok {
+					continue
+				}
+				p("\t\tType\t\"%s\"\t(%s)\n", t.Name, t.Type)
+			}
+			for _, decl := range file.Declarations {
+				var f *Func
+				f, ok := decl.(*Func)
+				if !ok {
+					continue
+				}
+				p("\t\tFunc\t\"%s\"\n", f.Name)
+				for _, tparam := range f.TypeParams {
+					p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name , tparam.Type)
+				}
+				for _, param := range f.Params {
+					p("\t\t\tParam\t\"%s\"\t(%s)\n", param.Name , param.Type)
+				}
+				for _, result := range f.Results {
+					p("\t\t\tResult\t\"%s\"\t(%s)\n", result.Name , result.Type)
+				}
+			}
+			for _, decl := range file.Declarations {
+				var m *Method
+				m, ok := decl.(*Method)
+				if !ok {
+					continue
+				}
+				p("\t\tMethod\t\"%s\"\n", m.Name)
+				for _, receiver := range m.Receivers {
+					p("\t\t\tReceiver\t\"%s\"\t(%s)\n", receiver.Name , receiver.Type)
+				}
+				for _, tparam := range m.TypeParams {
+					p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name , tparam.Type)
+				}
+				for _, param := range m.Params {
+					p("\t\t\tParam\t\"%s\"\t(%s)\n", param.Name , param.Type)
+				}
+				for _, result := range m.Results {
+					p("\t\t\tResult\t\"%s\"\t(%s)\n", result.Name , result.Type)
+				}
+			}
 		}
 
 	}
@@ -133,6 +178,9 @@ func printIdent(in *ast.Ident) (out string) {
 }
 
 func printBasicLit(in *ast.BasicLit) (out string) {
+	if in == nil {
+		return
+	}
 	return in.Value
 }
 
@@ -172,7 +220,7 @@ func printStarExpr(in *ast.StarExpr) (out string) {
 }
 
 func printArrayType(in *ast.ArrayType) (out string) {
-	return fmt.Sprintf("[]%s", printExpr(in.Elt))
+	return fmt.Sprintf("[%s]%s", printExpr(in.Len), printExpr(in.Elt))
 }
 
 func printMapType(in *ast.MapType) (out string) {

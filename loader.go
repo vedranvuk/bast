@@ -130,17 +130,33 @@ func parseDeclarations(fs *token.FileSet, in ast.Node, out *[]Declaration) {
 			parseVar(n, out)
 		case token.TYPE:
 			for _, spec := range n.Specs {
-				var ts, ok = spec.(*ast.TypeSpec)
-				if !ok || ts.Assign != token.NoPos {
-					continue
-				}
-				switch ts.Type.(type) {
-				case *ast.InterfaceType:
-					parseInterface(ts, out)
-				case *ast.StructType:
-					parseStruct(ts, out)
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					if s.Assign != token.NoPos {
+						continue
+					}
+					switch x := s.Type.(type) {
+					case *ast.InterfaceType:
+						parseInterface(s, out)
+					case *ast.StructType:
+						parseStruct(s, out)
+					case *ast.ArrayType:
+						parseArrayType(s, out)
+					case *ast.FuncType:
+						parseFuncType(s, out)
+					case *ast.Ident:
+						parseType(s, out)
+					default:
+						_ = x
+						panic("parseDeclarations: unsuported type declaration")
+					}
+				default:
+					panic("!")
 				}
 			}
+		case token.IMPORT:
+		default:
+			panic("parseDeclarations: unsupported token type")
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
@@ -148,18 +164,83 @@ func parseDeclarations(fs *token.FileSet, in ast.Node, out *[]Declaration) {
 		} else {
 			parseFunc(n, out)
 		}
+	default:
+		panic("parseDeclarations: unsupported node")
 	}
 	return
 }
 
 func parseMethod(in *ast.FuncDecl, out *[]Declaration) {
+	var val = new(Method)
+	val.Name = printExpr(in.Name)
+	parseCommentGroup(in.Doc, &val.Doc)
+	parseFieldList(in.Recv, &val.Receivers)
+	parseFieldList(in.Type.TypeParams, &val.TypeParams)
+	parseFieldList(in.Type.Params, &val.Params)
+	parseFieldList(in.Type.Results, &val.Results)
+	*out = append(*out, val)
 	return
 }
 
 func parseFunc(in *ast.FuncDecl, out *[]Declaration) {
 	var val = new(Func)
-	val.Name = in.Name.Name
+	val.Name = printExpr(in.Name)
+	parseCommentGroup(in.Doc, &val.Doc)
+	parseFieldList(in.Type.TypeParams, &val.TypeParams)
+	parseFieldList(in.Type.Params, &val.Params)
+	parseFieldList(in.Type.Results, &val.Results)
+	*out = append(*out, val)
+}
 
+func parseFuncType(in *ast.TypeSpec, out *[]Declaration) {
+	var val = new(Func)
+	parseCommentGroup(in.Comment, &val.Comment)
+	parseCommentGroup(in.Doc, &val.Doc)
+	val.Name = printExpr(in.Name)
+	var ft = in.Type.(*ast.FuncType)
+	parseFieldList(ft.TypeParams, &val.TypeParams)
+	parseFieldList(ft.Params, &val.Params)
+	parseFieldList(ft.Results, &val.Results)
+	*out = append(*out, val)
+	return
+}
+
+func parseFieldList(in *ast.FieldList, out *[]*Field) {
+	if in == nil {
+		return
+	}
+	for _, field := range in.List {
+		for _, name := range field.Names {
+			var val = new(Field)
+			parseCommentGroup(field.Doc, &val.Doc)
+			parseCommentGroup(field.Comment, &val.Comment)
+			val.Name = printExpr(name)
+			val.Type = printExpr(field.Type)
+			val.Tag = printExpr(field.Tag)
+			*out = append(*out, val)
+		}
+	}
+}
+
+func parseArrayType(in *ast.TypeSpec, out *[]Declaration) {
+	var val = new(Array)
+	parseCommentGroup(in.Comment, &val.Comment)
+	parseCommentGroup(in.Doc, &val.Comment)
+	val.Name = printExpr(in.Name)
+	val.Type = printExpr(in.Type)
+	val.Length = printExpr(in.Type.(*ast.ArrayType).Len)
+	*out = append(*out, val)
+	return
+}
+
+func parseType(in *ast.TypeSpec, out *[]Declaration) {
+	var val = new(Type)
+	parseCommentGroup(in.Comment, &val.Comment)
+	parseCommentGroup(in.Doc, &val.Comment)
+	val.Name = printExpr(in.Name)
+	val.Type = printExpr(in.Type)
+	val.IsAlias = in.Assign.IsValid()
+	*out = append(*out, val)
 	return
 }
 
@@ -176,9 +257,9 @@ func parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 func parseImportSpec(in *ast.ImportSpec, out *[]*Import) {
 	var val = new(Import)
 	if in.Name != nil {
-		val.Name = in.Name.Name
+		val.Name = printExpr(in.Name)
 	}
-	val.Path = in.Path.Value
+	val.Path = printExpr(in.Path)
 	parseCommentGroup(in.Doc, &val.Doc)
 	parseCommentGroup(in.Comment, &val.Comment)
 	return
@@ -274,7 +355,7 @@ func parseInterface(in *ast.TypeSpec, out *[]Declaration) {
 	var val = new(Interface)
 	parseCommentGroup(in.Comment, &val.Comment)
 	parseCommentGroup(in.Doc, &val.Doc)
-	val.Name = in.Name.Name
+	val.Name = printExpr(in.Name)
 	for _, method := range it.Methods.List {
 		_ = method
 		// parseMethod(method, &val.Methods)
@@ -291,7 +372,7 @@ func parseStruct(in *ast.TypeSpec, out *[]Declaration) {
 	var val = new(Struct)
 	parseCommentGroup(in.Comment, &val.Comment)
 	parseCommentGroup(in.Doc, &val.Doc)
-	val.Name = in.Name.Name
+	val.Name = printExpr(in.Name)
 	for _, field := range st.Fields.List {
 		parseStructField(field, &val.Fields)
 	}
@@ -300,16 +381,14 @@ func parseStruct(in *ast.TypeSpec, out *[]Declaration) {
 }
 
 func parseStructField(in *ast.Field, out *[]*Field) {
-	var val = new(Field)
-	if len(in.Names) > 0 {
-		val.Name = in.Names[0].Name
+	for _, name := range in.Names {
+		var val = new(Field)
+		parseCommentGroup(in.Comment, &val.Comment)
+		parseCommentGroup(in.Doc, &val.Doc)
+		val.Name = printExpr(name)
+		val.Type = printExpr(in.Type)
+		val.Tag = printExpr(in.Tag)
+		*out = append(*out, val)
 	}
-	parseCommentGroup(in.Comment, &val.Comment)
-	parseCommentGroup(in.Doc, &val.Doc)
-	val.Type = printExpr(in.Type)
-	if in.Tag != nil {
-		val.Tag = in.Tag.Value
-	}
-	*out = append(*out, val)
 	return
 }

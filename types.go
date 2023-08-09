@@ -68,10 +68,12 @@ type Func struct {
 	Doc []string
 	// Name is the func name.
 	Name string
-	//  Arguments is a list of func arguments.
-	Arguments []*Pair
-	// Returns is a list of func returns.
-	Returns []*Pair
+	// TypeParams are type parameters.
+	TypeParams []*Field
+	//  Params is a list of func arguments.
+	Params []*Field
+	// Results is a list of func returns.
+	Results []*Field
 }
 
 // Method represents a method.
@@ -79,17 +81,7 @@ type Method struct {
 	// Func embeds all Func properties.
 	Func
 	// Receiver is the method receiver.
-	Receiver *Pair
-}
-
-// Pair represents a key:value/name:type pair..
-// It may represent a method receiver, func argument, or result or a struct
-// field.
-type Pair struct {
-	// Name is the left pair part.
-	Name string
-	// Type is the right pair part.
-	Type string
+	Receivers []*Field
 }
 
 // Const represents a constant
@@ -121,6 +113,20 @@ type Var struct {
 }
 
 // Struct represents a struct type.
+type Type struct {
+	// Comment is the struct comment.
+	Comment []string
+	// Doc is the struct doc comment.
+	Doc []string
+	// Name is the struct name.
+	Name string
+	// Type is the Type underlying type.
+	Type string
+	// IsAlias is true if type is an alias of the type it derives from.
+	IsAlias bool
+}
+
+// Struct represents a struct type.
 type Struct struct {
 	// Comment is the struct comment.
 	Comment []string
@@ -146,8 +152,21 @@ type Field struct {
 	Tag string
 }
 
+type Array struct {
+	// Comment is the field comment.
+	Comment []string
+	// Doc is the field doc comment.
+	Doc []string
+	// Name is the field name.
+	Name string
+	// Length is the array length, if any.
+	Length string
+	// Type is the array'd type.
+	Type string
+}
+
 func (self Field) Print(w io.Writer, printComments bool) {
-	
+
 }
 
 func (self *Package) GetName() string   { return self.Name }
@@ -156,8 +175,9 @@ func (self *Import) GetName() string    { return self.Name }
 func (self *Interface) GetName() string { return self.Name }
 func (self *Func) GetName() string      { return self.Name }
 func (self *Method) GetName() string    { return self.Name }
-func (self *Pair) GetName() string      { return self.Name }
 func (self *Const) GetName() string     { return self.Name }
 func (self *Var) GetName() string       { return self.Name }
 func (self *Struct) GetName() string    { return self.Name }
 func (self *Field) GetName() string     { return self.Name }
+func (self *Type) GetName() string      { return self.Name }
+func (self *Array) GetName() string     { return self.Name }
