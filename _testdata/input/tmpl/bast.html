@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+	<style>
+		html {
+			background-color: black;
+			color: white;
+			font-family: "sans-serif";
+		}
+
+		h1,
+		h2,
+		h3,
+		h4,
+		h5,
+		h6 {
+			background-color: #222;
+			padding: 5pt;
+		}
+	</style>
+</head>
+
+<body>
+	<h2>Vars</h2>
+	<table>
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Type</th>
+				<th>Value</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{- range $var := Vars}}
+			<tr>
+				<td>{{$var.Name}}</td>
+				<td>{{if $var.Type}}{{$var.Type}}{{end}}</td>
+				<td>{{if $var.Value}}{{$var.Value}}{{end}}</td>
+			</tr>
+			{{- end}}
+		</tbody>
+	</table>
+
+	<h2>Consts</h2>
+	<table>
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Type</th>
+				<th>Value</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{- range $const := Consts}}
+			<tr>
+				<td>{{$const.Name}}</td>
+				<td>{{if $const.Type}}{{$const.Type}}{{end}}</td>
+				<td>{{if $const.Value}}{{$const.Value}}{{end}}</td>
+			</tr>
+			{{- end}}
+		</tbody>
+	</table>
+
+	<h2>Types</h2>
+	<table>
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Type</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{- range $type := Types}}
+			<tr>
+				<td>{{$type.Name}}</td>
+				<td>{{if $type.Type}}{{$type.Type}}{{end}}</td>
+			</tr>
+			{{- end}}
+		</tbody>
+	</table>
+
+	{{define "printFields"}}
+	<table>
+		<thead>
+			<th>Name</th>
+			<th>Type</th>
+		</thead>
+		<tbody>
+			{{- range $field := .}}
+			<tr>
+				<td>{{$field.Name}}</td>
+				<td>{{$field.Type}}</td>
+			</tr>
+			{{- end}}
+		</tbody>
+	</table>
+	{{end}}
+
+
+	<h2>Funcs</h2>
+	{{- range $func := Funcs}}
+	<h3>{{$func.Name}}</h3>
+	<h4>TypeParams</h4>
+	{{template "printFields" $func.TypeParams}}
+	<h4>Params</h4>
+	{{template "printFields" $func.Params}}
+	<h4>Results</h4>
+	{{template "printFields" $func.Results}}
+	{{- end}}
+
+	<h2>Methods</h2>
+	{{- range $method := Methods}}
+	<h3>{{$method.Name}}</h3>
+	<h4>Receivers</h4>
+	{{template "printFields" $method.Receivers}}
+	<h4>TypeParams</h4>
+	{{template "printFields" $method.TypeParams}}
+	<h4>Params</h4>
+	{{template "printFields" $method.Params}}
+	<h4>Results</h4>
+	{{template "printFields" $method.Results}}
+	{{- end}}
+
+	{{- define "printInterfaceMethod" -}}
+	<h5>{{.Name}}</h5>
+	<h6>Params</h6>
+	{{template "printFields" .Params}}
+	<h6>Results</h6>
+	{{template "printFields" .Results}}
+	{{- end -}}
+
+	<h2>Interfaces</h2>
+	{{- range $interface := Interfaces}}
+	<h3>{{$interface.Name}}</h3>
+	<h4>Methods</h4>
+	{{range $method := $interface.Methods}}
+	{{template "printInterfaceMethod" $method}}
+	{{end}}
+	{{- end}}
+
+	<h2>Structs</h2>
+	{{- range $struct := Structs}}
+	<h3>{{$struct.Name}}</h3>
+	<h4>Fields</h4>
+	{{template "printFields" $struct.Fields}}
+	{{end}}
+</body>
+
+</html>

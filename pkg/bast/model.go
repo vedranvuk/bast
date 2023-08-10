@@ -6,7 +6,7 @@
 
 package bast
 
-// Package
+// Package contians info about a Go package.
 type Package struct {
 	// Name is the package name, without path.
 	Name string
@@ -14,7 +14,7 @@ type Package struct {
 	Files []*File
 }
 
-// File describes a go source file.
+// File contians info about a Go source file.
 type File struct {
 	// Comments are the file comments, grouped by separation, without positions,
 	// including docs.
@@ -29,7 +29,7 @@ type File struct {
 	Declarations []Declaration
 }
 
-// Import represents a package import entry in a File.
+// Import contians info about an import.
 type Import struct {
 	// Comment is the import comment.
 	Comment []string
@@ -47,7 +47,7 @@ type Declaration interface {
 	GetName() string
 }
 
-// Func represents a func.
+// Func contains info about a function.
 type Func struct {
 	// Comment is the func comment.
 	Comment []string
@@ -63,7 +63,7 @@ type Func struct {
 	Results []*Field
 }
 
-// Method represents a method.
+// Method contains info about a method.
 type Method struct {
 	// Func embeds all Func properties.
 	Func
@@ -71,7 +71,7 @@ type Method struct {
 	Receivers []*Field
 }
 
-// Const represents a constant
+// Const contains info about a constant.
 type Const struct {
 	// Comment is the const comment.
 	Comment []string
@@ -85,7 +85,7 @@ type Const struct {
 	Value string
 }
 
-// Const represents a constant
+// Var contains info about a variable.
 type Var struct {
 	// Comment is the const comment.
 	Comment []string
@@ -99,7 +99,7 @@ type Var struct {
 	Value string
 }
 
-// Struct represents a struct type.
+// Struct contains info about a struct.
 type Type struct {
 	// Comment is the struct comment.
 	Comment []string
@@ -113,21 +113,7 @@ type Type struct {
 	IsAlias bool
 }
 
-// Array is an array type, same as Type but with a Length.
-type Array struct {
-	// Comment is the field comment.
-	Comment []string
-	// Doc is the field doc comment.
-	Doc []string
-	// Name is the field name.
-	Name string
-	// Length is the array length, if any.
-	Length string
-	// Type is the array'd type.
-	Type string
-}
-
-// Interface represents an interface.
+// Interface contains info about an interface.
 type Interface struct {
 	// Comment is the interface comment.
 	Comment []string
@@ -139,7 +125,7 @@ type Interface struct {
 	Methods []*Method
 }
 
-// Struct represents a struct type.
+// Struct contains info about a struct.
 type Struct struct {
 	// Comment is the struct comment.
 	Comment []string
@@ -151,7 +137,8 @@ type Struct struct {
 	Fields []*Field
 }
 
-// Field represents a struct field.
+// Field contains info about a struct field, function or method receiver,
+// type params, params or results.
 type Field struct {
 	// Comment is the field comment.
 	Comment []string
@@ -173,7 +160,6 @@ func (self *Method) GetName() string    { return self.Name }
 func (self *Var) GetName() string       { return self.Name }
 func (self *Const) GetName() string     { return self.Name }
 func (self *Type) GetName() string      { return self.Name }
-func (self *Array) GetName() string     { return self.Name }
 func (self *Interface) GetName() string { return self.Name }
 func (self *Struct) GetName() string    { return self.Name }
 func (self *Field) GetName() string     { return self.Name }

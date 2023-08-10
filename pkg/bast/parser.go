@@ -2,54 +2,14 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// Package bast implements a simple object model of top level Go declarations
-// from go source files designed for use in text based code-generation with
-// Go's text/template templating engine.
-//
-// Bast's structure can be easily traversed from a template and provides a
-// number of functions to help with data retrieval and other utils.
 package bast
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 
 	"golang.org/x/tools/go/packages"
 )
-
-// Load loads and returns the Go packages named by the given patterns.
-//
-// Paths can be absolute or relative paths to a directory containing go source
-// files possibly defining a package or a cmd or a go file. It can also be a go
-// module path loading of which depends on the current go environment.
-//
-// If an error in loading a file or a package occurs the error returned will be
-// the first error of the first package that contains an error. Nil Bast is
-// returned in case of an error.
-//
-// Patterns which name file paths ar epared into an unnamed package in bast.
-func Load(patterns ...string) (bast *Bast, err error) {
-	var (
-		config = &packages.Config{
-			Mode: packages.NeedSyntax | packages.NeedCompiledGoFiles,
-		}
-		pkgs []*packages.Package
-	)
-	if pkgs, err = packages.Load(config, patterns...); err != nil {
-		return nil, fmt.Errorf("load error: %w", err)
-	}
-	bast = new(Bast)
-	for idx, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
-		}
-		parsePackage(pkg.CompiledGoFiles[idx], pkg, &bast.Packages)
-	}
-	return
-}
-
-// -----------------------------------------------------------------------------
 
 func parsePackage(name string, in *packages.Package, out *[]*Package) {
 	var val = new(Package)
@@ -108,7 +68,7 @@ func parseDeclarations(in ast.Node, out *[]Declaration) {
 					case *ast.StructType:
 						parseStruct(s, out)
 					case *ast.ArrayType:
-						parseArrayType(s, out)
+						parseType(s, out)
 					case *ast.FuncType:
 						parseFuncType(s, out)
 					case *ast.Ident:
@@ -245,17 +205,6 @@ func parseType(in *ast.TypeSpec, out *[]Declaration) {
 	val.Name = printExpr(in.Name)
 	val.Type = printExpr(in.Type)
 	val.IsAlias = in.Assign.IsValid()
-	*out = append(*out, val)
-	return
-}
-
-func parseArrayType(in *ast.TypeSpec, out *[]Declaration) {
-	var val = new(Array)
-	parseCommentGroup(in.Comment, &val.Comment)
-	parseCommentGroup(in.Doc, &val.Comment)
-	val.Name = printExpr(in.Name)
-	val.Type = printExpr(in.Type)
-	val.Length = printExpr(in.Type.(*ast.ArrayType).Len)
 	*out = append(*out, val)
 	return
 }

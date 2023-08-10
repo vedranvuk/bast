@@ -10,8 +10,15 @@
 			"request": "launch",
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/bast",
+			"cwd": "${workspaceFolder}",
 			"args": [
-				
+				"-i",
+				"./_testdata/input/go",
+				"-t",
+				"_testdata/input/tmpl/*.html",
+				"-o",
+				"_testdata/output",
+				"-w"
 			]
 		},
 		{
