@@ -214,6 +214,12 @@ func parseFieldList(in *ast.FieldList, out *[]*Field) {
 		return
 	}
 	for _, field := range in.List {
+		if field.Names == nil {
+			*out = append(*out, &Field{
+				Type: printExpr(field.Type),
+			})
+			continue
+		}
 		for _, name := range field.Names {
 			var val = new(Field)
 			parseCommentGroup(field.Doc, &val.Doc)

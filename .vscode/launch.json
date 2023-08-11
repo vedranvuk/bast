@@ -5,28 +5,43 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "bast",
+			"name": "bast: basictest",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
 			"program": "${workspaceFolder}/cmd/bast",
 			"cwd": "${workspaceFolder}",
 			"args": [
+				"-g",
+				"io",
+				"-g",
+				"os",
 				"-i",
-				"./_testdata/input/go",
-				"-t",
-				"_testdata/input/tmpl/*.html",
+				"_testdata/input/tmpl/empty.tmpl",
 				"-o",
-				"_testdata/output",
-				"-w"
+				"_testdata/output/empty.tmpl",
+				"-w",
+				"-d"
 			]
 		},
 		{
-			"name": "tester",
+			"name": "bast: functest",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/cmd/tester"
+			"program": "${workspaceFolder}/cmd/bast",
+			"cwd": "${workspaceFolder}",
+			"args": [
+				"-g",
+				"./_testdata/input/functest",
+				"-i",
+				"_testdata/input/tmpl/functest.md",
+				"-o",
+				"_testdata/output/functest.md",
+				"-w",
+				"-s",
+				"-d"
+			]
 		}
 	]
 }

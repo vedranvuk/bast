@@ -120,7 +120,7 @@ func (self *Config) Print(w io.Writer, bast *Bast) {
 					}
 					p("\t\tStruct\t\"%s\"\n", s.Name)
 					for _, field := range s.Fields {
-						p("\t\t\tField\t\"%s\"\t(%s)\t`%s`\n", field.Name, field.Type, field.Tag)
+						p("\t\t\tField\t\"%s\"\t(%s)\t%s\n", field.Name, field.Type, field.Tag)
 					}
 				}
 			}
@@ -395,7 +395,7 @@ func printStructType(in *ast.StructType) (out string) {
 	// TODO Newlines in struct printing
 	out = "struct{"
 	var (
-		idx int
+		idx   int
 		field *ast.Field
 	)
 	for idx, field = range in.Fields.List {
