@@ -1,15 +1,68 @@
 # Function reference
 
-## std functions
+This document lists functions available to a template file being executed by the `bast` command. For `text/template` reference and usage click [here](https://pkg.go.dev/text/template).
 
-### and
+- [Standard library functions](#standard-library-functions)
+  - [Utilities](#)
+    - [call](#call)
+    - [len](#len)
+    - [index](#index)
+    - [slice](#slice)
+    - [print](#print)
+    - [printf](#printf)
+    - [println](#println)
+  - [Escaping](#)
+    - [html](#html)
+    - [js](#len)
+    - [urlquery](#urlquery)
+  - [Logic](#)
+    - [and](#and)
+    - [or](#or)
+    - [not](#not)
+  - [Comparisons](#comparisons)
+    - [eq](#eq)
+    - [ge](#ge)
+    - [gt](#gt)
+    - [le](#le)
+    - [lt](#lt)
+    - [ne](#ne)
+- [Bast functions](#bast)
+  - [Declaration retrieval by declaration name](#)
+    - [var](#var)
+    - [const](#const)
+    - [type](#type)
+    - [func](#func)
+    - [method](#method)
+    - [interface](#interface)
+    - [struct](#struct)
+  - [Declaration retrieval by parent package](#)
+    - [vars](#vars)
+    - [consts](#consts)
+    - [types](#types)
+    - [funcs](#funcs)
+    - [methods](#methods)
+    - [interfaces](#interfaces)
+    - [structs](#structs)
+  - [Global declaration retrieval](#)
+    - [allvars](#allvars)
+    - [allconsts](#allconsts)
+    - [alltypes](#alltypes)
+    - [allfuncs](#allfuncs)
+    - [allmethods](#allmethods)
+    - [allinterfaces](#allinterfaces)
+    - [allstructs](#allstructs)
+  - [Utilities](#)
+    - [varsoftype](#varsoftype)
+    - [constsoftype](#constsoftype)
+    - [structmethods](#structmethods)
+    - [structfieldnames](#structfieldnames)
 
-Computes the Boolean AND of its arguments, returning the first false argument it
-encounters, or the last argument.
+---
 
-```
-1 and 1 = {{and 1 1}}
-```
+## Standard library functions
+
+These functions are provided by `text-template` package and are always available.
+They are listed here for quick reference.
 
 ### call
 
@@ -17,16 +70,15 @@ Returns the result of evaluating the first argument as a function. The function
 must return 1 result, or 2 results, the second of which is an error.
 
 ```
-// TODO call example
+{{call .SomeFunction "a" "b" "c"}}
 ```
 
-### html
+### len
 
-Returns the escaped HTML equivalent of the textual representation of its arguments.
+Returns the length of the item, with an error if it has no defined length.
 
 ```
-{{- $html := "<p>Hello World!</p>"}}
-<p>Hello World!</p> = {{html $html}}
+Length of Vars: {{len allvars}}
 ```
 
 ### index
@@ -36,7 +88,7 @@ Thus "index x 1 2 3" is, in Go syntax, x[1][2][3]. Each indexed item must be a
 map, slice, or array.
 
 ```
-// TODO index example
+Element at [1][2][3]: {{index .MyMultiDimArray 1 2 3}}
 ```
 
 ### slice
@@ -47,7 +99,42 @@ is x[1:], and "slice x 1 2 3" is x[1:2:3]. The first argument must be a string,
 slice, or array.
 
 ```
-// TODO slice example
+{{$args := join "a" "b" "c" "d"}}
+{{slice $args 2 1}}
+// Output: c
+```
+
+### print
+
+Maps to fmt.Sprint and returns its result.
+
+```
+{{print "print"}}
+```
+
+### printf
+
+Maps to fmt.Sprintf and returns its result.
+
+```
+{{printf "%s" "printf"}}
+```
+
+### println
+
+Maps to fmt.Sprintln and returns its result.
+
+```
+{{println "println"}}
+```
+
+### html
+
+Returns the escaped HTML equivalent of the textual representation of its arguments.
+
+```
+{{- $html := "<p>Hello World!</p>"}}
+<p>Hello World!</p> = {{html $html}}
 ```
 
 ### js
@@ -60,20 +147,23 @@ arguments.
 function(name) { return name + 3.14 } = {{js $js}}
 ```
 
-### len
+### urlquery
 
-Returns the length of the item, with an error if it has no defined length.
-
-```
-Length of Vars: {{len allvars }}
-```
-
-### not
-
-Returns the Boolean negation of its argument.
+Returns the escaped value of the textual representation of its arguments in a
+form suitable for embedding in a URL query.
 
 ```
-0 = {{ not 1}}
+{{- $url := "http://example.com/user?id=42&theme=pink"}}
+http://example.com/user?id=42&theme=pink = {{ urlquery $url}}
+```
+
+### and
+
+Computes the Boolean AND of its arguments, returning the first false argument it
+encounters, or the last argument.
+
+```
+1 and 1 = {{and 1 1}}
 ```
 
 ### or
@@ -85,45 +175,19 @@ encounters, or the last argument.
 1 or 0 = {{or 1 0}}
 ```
 
-### print
+### not
 
-Maps to fmt.Sprint.
-
-```
-{{print "print"}}
-```
-
-### printf
-
-Maps to fmt.Sprintf.
+Returns the Boolean negation of its argument.
 
 ```
-{{printf "%s" "printf"}}
-```
-
-### println
-
-Maps to fmt.Sprintln.
-
-```
-{{println "println"}}
-```
-
-### urlquery
-
-Returns the escaped value of the textual representation of its arguments in a
-form suitable for embedding in a URL query.
-
-```
-{{- $url := "http://example.com/user?id=42&theme=pink"}}
-http://example.com/user?id=42&theme=pink = {{ urlquery $url}}
+0 = {{ not 1}}
 ```
 
 ## Comparisons
 
 ### eq
 
-Evaluates the comparison a == b || a == c || ...
+Returns true if both of its arguments have equal values.
 
 ```
 2 == 2 = {{eq 2 2}}
@@ -131,7 +195,7 @@ Evaluates the comparison a == b || a == c || ...
 
 ### ge
 
-Evaluates the comparison a >= b.
+Returns true if first argument is greater than or equal to its second argument.
 
 ```
 5 >= 4 = {{ge 5 4}}
@@ -139,7 +203,7 @@ Evaluates the comparison a >= b.
 
 ### gt
 
-Evaluates the comparison a > b.
+Returns true if first argument is greater than its second argument.
 
 ```
 5 > 4 = {{gt 5 4 }}
@@ -147,7 +211,7 @@ Evaluates the comparison a > b.
 
 ### le
 
-Evaluates the comparison <= b.
+Returns true if first argument is less than or equal to its second argument.
 
 ```
 4 <= 5 = {{le 4 5}}
@@ -155,7 +219,7 @@ Evaluates the comparison <= b.
 
 ### lt
 
-Evaluates the comparison a < b.
+Returns true if first argument is less than its second argument.
 
 ```
 4 <= 5 = {{lt 4 5}}
@@ -163,7 +227,7 @@ Evaluates the comparison a < b.
 
 ### ne
 
-Evaluates the comparison a != b.
+Returns true if first argument is not equal to its second argument.
 
 ```
 4 != 5 = {{ne 4 5}}
@@ -275,9 +339,9 @@ Joins strings with separator.
 ```
 
 ```
-{{$names := structfieldnames "main" "Struct"}}
+{{$names := fieldnames "main" "Struct"}}
 db.Exec("INSERT INTO table VALUES ({{len $names | repeat "?" ", "}})",{{range $names}}
-input.{{.}},{{end}}
+	input.{{.}},{{end}}
 )
 ```
 
@@ -416,4 +480,38 @@ Retrieves all structs from a package.
 ```
 {{range allstructs}}
 {{.Name}}{{end}}
+```
+
+### varsoftype
+
+Returns all variables from a package that have specific type.
+
+```
+{{range varsoftype "int"}}
+{{.Name}}{{end}}
+```
+
+### constsoftype
+
+Returns all constants from a package that have specific type.
+
+```
+{{range constsoftype "int"}}
+{{.Name}}{{end}}
+```
+
+### methodset
+
+Returns methods for a type from a package by its name.
+
+```
+{{range methodset "main" "Struct"}}
+{{.Name}}{{end}}
+```
+
+### fieldnames
+
+Returns a slice of field names of a struct in a package.
+```
+{{fieldnames "main" "Struct"}}
 ```

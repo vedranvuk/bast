@@ -17,28 +17,7 @@ import (
 	"github.com/vedranvuk/bast/pkg/bast"
 )
 
-const usage = `Bast is a reference command for Bastard AST.
-
-It loads Go inputs into a bast model and passes it to specified file as it is
-executed to output directory using 'text/template'. Additional variables can be
-defined to be made available to template when executed.
-
-The -v option defines a variable in the format '-v key=value'. It can be 
-repeated to define multiple variables. Duplicate keys are not allowed.
-
-The -g option takes a path to a Go file or a directory or go module path and 
-loads the ast of given inputs into a bast model. Module paths depend on current
-Go build environment. Option can be specified multiple times to load multiple
-packages or files.
-
-Placeholder package for go files outside of package will have an empty name.s
-
-Data passed to the template will be in the format:
-
-struct {
-	Vars map[string]string
-	Bast *Bast
-}
+const usage = `
 
 For Bast function reference type 'bast -f'.
 `
@@ -47,8 +26,8 @@ func main() {
 
 	var (
 		fset      = flag.NewFlagSet("bast", flag.ExitOnError)
-		input     = fset.String("i", "", "Template input glob pattern.")
-		output    = fset.String("o", ".", "Output directory or file.")
+		input     = fset.String("i", "", "Input template file name.")
+		output    = fset.String("o", ".", "Output file name.")
 		ref       = fset.Bool("f", false, "Show BAST reference.")
 		overwrite = fset.Bool("w", false, "Overwrite conflicting files in output.")
 		stdout    = fset.Bool("s", false, "Write output to stdout.")
@@ -57,7 +36,7 @@ func main() {
 		vars      = make(map[string]string)
 	)
 	fset.Usage = func() {
-		fmt.Print(usage)
+		fmt.Printf("Usage: bast -i <input-filename> ...-g <go-input> [options].\n")
 		fmt.Println()
 		fset.PrintDefaults()
 	}
@@ -78,6 +57,10 @@ func main() {
 			vars[key] = val
 			return nil
 		})
+	if len(os.Args[1:]) == 0 {
+		fset.Usage()
+		os.Exit(0)
+	}
 	fset.Parse(os.Args[1:])
 	if *ref {
 		printRef()
@@ -151,5 +134,242 @@ func fatal(err error) {
 }
 
 func printRef() {
+	const text = `Bast is a reference command for Bastard AST.
 
+It loads Go source into a bast model and passes it to an input file being
+executed to output file using 'text/template'. Additional simple variables can 
+be defined to be made available to a template when executed.
+
+Top level data structure passed to a template will be in the format:
+
+struct {
+	// Map of variables defined on command line.
+	// Example: {{.Vars "MyVariable"}}
+	Vars map[string]string
+
+	// Bast model of loaded go inputs.
+	// Example: {{constsoftype "main" "MyEnum"}}
+	// Example: {{structfields "models" "MyModel"}}
+	// Example: {{.Bast "main" "main.go" "MyVar"}}
+	Bast *Bast
+}
+
+-i is required and specifies the input template file. 
+
+-g takes a path to a Go source file, directory containing multiple Go source 
+files defining a package or command or a go module path and loads the ast of 
+given inputs into a bast model. 
+
+A directory or file is specified either by an absolute or a relative path
+(starting with "/", "." or ".."). If a path has no prefix it is considered 
+a module path. Parsing go source from a module path depends on current 
+environment variables loaded by this cmd.
+
+Input files (i.e. not directories or modules) are loaded in bast into an unnamed 
+package so when addressing declarations from them use an empty string for the
+name of the package.
+
+-o specifies the output file name. It is optional and if omitted saves the 
+output file to the current directory under the same base file name as the
+input template file.
+
+-v defines a variable in the format '-v key=value'. It can be 
+repeated to define multiple variables. Duplicate keys are not allowed.
+
+-w option disables checking if the output file exists and overwrites it without 
+asking for confirmation.
+
+-s option enables printing the output to stdout in addition to the output file.
+
+-d option enables printing of additional debug info.
+
+
+Functions:
+
+Standard library functions
+  Utilities
+    call       Calls first parameter passing all the rest as arguments.
+	           This function is not used in bast cmd as data passed to templates
+			   contains no exported functions to call except GetName on
+			   a declaration.
+    len        Returns length of first param or 0 and an error if undefined.
+    index      Indexes first param with dim indices defined by rest of params.
+    slice      Slices first param with second and optionally third.
+    print      Prints any params.
+    printf     Printf's using first param as format, rest as args.
+    println    Println's any params.
+  Escaping   
+    html        HTML escapes first param.
+    js          JS escapes first param.
+    urlquery    URLQuery escapes first param.
+  Logic
+    and    and of param 1 and 2
+    or     or of param 1 and 2
+    not    not of param 1 and 2
+  Comparisons
+    eq    true if param 1 == param 2
+    ge    true if param 1 >= param 2
+    gt    true if param 1  > param 2
+    le    true if param 1 <= param 2
+    lt    true if param 1  < param 2
+    ne    true if param 1 != param 2
+Bast functions
+  Utilities
+    varsoftype      Return variables from a package by type name.
+    constsoftype    Return consts from a package by type name.
+    fieldset        Return methods 
+    fieldnames      Return names of struct fields from package
+  Additional string utilities     
+    trimpfx    remove 2nd param defining suffix from 1st param.
+    trimsfx    remove 2nd param defining prefix from 1st param.
+    join       join 2nd+ params using 1st param defining separator.
+    repeat     repeat 1st param, delimiting with 2nd, 3rd param times.
+Retrieve a declaration from package by name.
+  Param 1 = package name, param 2 = declaration name.
+    var          
+    const        
+    type         
+    func         
+    method       
+    interface    
+    struct       
+  Retrieve all declarations from a package.
+  Param 1 = package name.
+    vars          
+    consts        
+    types         
+    funcs         
+    methods       
+    interfaces    
+    structs       
+  Retrieve all declarations by kind.
+  These functions take no params.
+    allvars          
+    allconsts        
+    alltypes         
+    allfuncs         
+    allmethods       
+    allinterfaces    
+    allstructs
+
+
+Structure:
+
+	Bast {
+		Packages: map[string]*Package {
+			Files: map[string]*File {
+				Declarations: map[string]Declaration {
+					Var
+					Const
+					Type
+					Func
+					Method
+					Interface
+					Struct
+				}
+			}
+		}
+	}
+
+
+Models:
+
+// Declaration defines a top level declaration in a go source file.
+type Declaration interface {
+	GetName() string // Returns declaration name, the identifier.
+}
+
+// Package contians info about a Go package.
+type Package struct {
+	Name  string           // Package name.
+	Files map[string]*File // Map of files by their name.
+}
+
+// File contians info about a Go source file.
+type File struct {
+	Comments     [][]string             // Comment groups.
+	Doc          []string               // Documentation.
+	Name         string                 // Name with ext without path.
+	Imports      map[string]*Import     // Map of imports by import path.
+	Declarations map[string]Declaration // Map of declarations by name.
+}
+
+// Import contians info about an import.
+type Import struct {
+	Comment []string // Comment.
+	Doc     []string // Documentation.
+	Name    string   // Optional custom import name including reserved ".".
+	Path    string   // Import path.
+}
+
+// Func contains info about a function.
+type Func struct {
+	Comment    []string          // Comment.
+	Doc        []string          // Documentation.
+	Name       string            // Name.
+	TypeParams map[string]*Field // Map of type parameters by name.
+	Params     map[string]*Field // Map of params by param name.
+	Results    map[string]*Field // Map of results by result name.
+}
+
+// Method contains info about a method.
+type Method struct {
+	Func                        // Embeds all Func fields.
+	Receivers map[string]*Field // Map of receivers by receiver name.
+}
+
+// Const contains info about a constant.
+type Const struct {
+	Comment []string // Comments.
+	Doc     []string // Documentation.
+	Name    string   // Name.
+	Type    string   // Optional type name.
+	Value   string   // Optional value.
+}
+
+// Var contains info about a variable.
+type Var struct {
+	Comment []string // Comments.
+	Doc     []string // Documentation.
+	Name    string   // Name.
+	Type    string   // Optional type.
+	Value   string   // Optional initial value.
+}
+
+// Type contains info about a type.
+type Type struct {
+	Comment []string // Comments.
+	Doc     []string // Documentation.
+	Name    string   // Name.
+	Type    string   // Underlying type, type derived from.
+	IsAlias bool     // True if a type alias.
+}
+
+// Interface contains info about an interface.
+type Interface struct {
+	Comment []string           // Comments.
+	Doc     []string           // Documentation.
+	Name    string             // Name.
+	Methods map[string]*Method // Map of methods by method name.
+}
+
+// Struct contains info about a struct.
+type Struct struct {
+	Comment []string          // Comments.
+	Doc     []string          // Documentation.
+	Name    string            // Name.
+	Fields  map[string]*Field // Map of Fields by field name.
+}
+
+// Field contains info about a struct field, method receiver, or method or func
+// type params, params or results.
+type Field struct {
+	Comment []string // Comments.
+	Doc     []string // Documentation.
+	Name    string   // Name.
+	Type    string   // Type name.
+	Tag     string   // Raw tag.
+}
+`
+	fmt.Print(text)
 }

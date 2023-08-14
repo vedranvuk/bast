@@ -40,11 +40,12 @@ func Load(patterns ...string) (bast *Bast, err error) {
 		return nil, fmt.Errorf("load error: %w", err)
 	}
 	bast = new(Bast)
+	bast.Packages = make(map[string]*Package)
 	for idx, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
 		}
-		parsePackage(pkg.CompiledGoFiles[idx], pkg, &bast.Packages)
+		parsePackage(pkg.CompiledGoFiles[idx], pkg, bast.Packages)
 	}
 	return
 }
@@ -56,7 +57,7 @@ type Bast struct {
 	//
 	// Files outside of a package given to Load will be placed in a package
 	// with an empty name.
-	Packages []*Package
+	Packages map[string]*Package
 }
 
 // FuncMap returns a funcmap for use with text/template templates.
@@ -68,7 +69,12 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"split":   strings.Split,
 		"join":    self._join,
 		"repeat":  self._repeat,
-		// Retrieval by package and name.
+		// Retrieval utils
+		"varsoftype":   self._varsOfType,
+		"constsoftype": self._constsOfType,
+		"methodset":    self._methodset,
+		"fieldnames":   self._fieldNames,
+		// Get one by package and declaration name.
 		"var":       self._var,
 		"const":     self._const,
 		"type":      self._type,
@@ -76,7 +82,7 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"method":    self._method,
 		"interface": self._interface,
 		"struct":    self._struct,
-		// Retrieval by package.
+		// Get all by package.
 		"vars":       self._vars,
 		"consts":     self._consts,
 		"types":      self._types,
@@ -84,7 +90,7 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"methods":    self._methods,
 		"interfaces": self._interfaces,
 		"structs":    self._structs,
-		// Global retrieval by kind.
+		// Get all by kind.
 		"allvars":       self._allvars,
 		"allconsts":     self._allconsts,
 		"alltypes":      self._alltypes,
@@ -92,18 +98,8 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"allmethods":    self._allmethods,
 		"allinterfaces": self._allinterfaces,
 		"allstructs":    self._allstructs,
-		// Type retrieval
-		"varsoftype":   self._varsOfType,
-		"constsoftype": self._constsOfType,
-		// Struct helpers.
-		"structmethods":    self._structMethods,
-		"structfieldnames": self._structFieldNames,
 	}
 }
-
-// -----------------------------------------------------------------------------
-// string utils
-// -----------------------------------------------------------------------------
 
 // _repeat repeats string s n times, separates it with sep and returns it.
 func (self *Bast) _repeat(s, delim string, n int) string {
@@ -116,10 +112,6 @@ func (self *Bast) _repeat(s, delim string, n int) string {
 
 // _join joins s with sep.
 func (self *Bast) _join(sep string, s ...string) string { return strings.Join(s, sep) }
-
-// -----------------------------------------------------------------------------
-// Single declaration retrieval by kind and name.
-// -----------------------------------------------------------------------------
 
 // _var returns a variable whose Name==declName from a package named pkgName.
 func (self *Bast) _var(pkgName, declName string) (out Declaration) {
@@ -156,10 +148,6 @@ func (self *Bast) _struct(pkgName, declName string) (out Declaration) {
 	return pkgNamedDecl[*Struct](pkgName, declName, self.Packages)
 }
 
-// -----------------------------------------------------------------------------
-// All declaration retrieval by kind.
-// -----------------------------------------------------------------------------
-
 // _allvars returns all variables in self, across all packages.
 func (self *Bast) _allvars() (out []Declaration) {
 	return allDecl[*Var](self.Packages)
@@ -194,10 +182,6 @@ func (self *Bast) _allinterfaces() (out []Declaration) {
 func (self *Bast) _allstructs() (out []Declaration) {
 	return allDecl[*Struct](self.Packages)
 }
-
-// -----------------------------------------------------------------------------
-// Package declaration retrieval by kind.
-// -----------------------------------------------------------------------------
 
 // Vars returns all variables in self, across all packages.
 func (self *Bast) _vars(pkgName string) (out []Declaration) {
@@ -234,10 +218,6 @@ func (self *Bast) _structs(pkgName string) (out []Declaration) {
 	return pkgDecl[*Struct](pkgName, self.Packages)
 }
 
-// -----------------------------------------------------------------------------
-// Package declaration retrieval by type name.
-// -----------------------------------------------------------------------------
-
 // _varsOfType returns all top level variable declarations from a package named
 // pkgName whose type name equals typeName.
 func (self *Bast) _varsOfType(pkgName, typeName string) (out []Declaration) {
@@ -250,24 +230,23 @@ func (self *Bast) _constsOfType(pkgName, typeName string) (out []Declaration) {
 	return pkgTypeDecl[*Const](pkgName, typeName, self.Packages)
 }
 
-// -----------------------------------------------------------------------------
-// Struct utils.
-// -----------------------------------------------------------------------------
+// _methodset returns all methods from a package named pkgName whose receiver
+// type matches typeName (star prefixed or not).
+func (self *Bast) _methodset(pkgName, typeName string) (out []Declaration) {
+	var (
+		pkg *Package
+		ok  bool
+	)
+	if pkg, ok = self.Packages[pkgName]; !ok {
+		return
+	}
+	for _, file := range pkg.Files {
+		for _, decl := range file.Declarations {
 
-// _structMethods returns all methods from a package named pkgName whose receiver
-// type matches structName (star prefixed or not).
-func (self *Bast) _structMethods(pkgName, structName string) (out []Declaration) {
-	for _, pkg := range self.Packages {
-		if pkg.Name != pkgName {
-			continue
-		}
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
-				if v, ok := decl.(*Method); ok {
-					for _, recv := range v.Receivers {
-						if strings.TrimLeft(recv.Type, "*") == structName {
-							out = append(out, v)
-						}
+			if v, ok := decl.(*Method); ok {
+				for _, recv := range v.Receivers {
+					if strings.TrimLeft(recv.Type, "*") == typeName {
+						out = append(out, v)
 					}
 				}
 			}
@@ -276,10 +255,9 @@ func (self *Bast) _structMethods(pkgName, structName string) (out []Declaration)
 	return
 }
 
-// _structFieldNames returns a slice of names of fields of a struct named by
-// structName residing in some file in package named pkgName. Optional prefix
-// is prepended to each name.
-func (self *Bast) _structFieldNames(pkgName, structName string) (out []string) {
+// _fieldNames returns a slice of names of fields of a struct named by
+// structName residing in some file in package named pkgName.
+func (self *Bast) _fieldNames(pkgName, structName string) (out []string) {
 	for _, pkg := range self.Packages {
 		if pkg.Name != pkgName {
 			continue
@@ -297,11 +275,7 @@ func (self *Bast) _structFieldNames(pkgName, structName string) (out []string) {
 	return
 }
 
-// -----------------------------------------------------------------------------
-// internals
-// -----------------------------------------------------------------------------
-
-func allDecl[T Declaration](p []*Package) (out []Declaration) {
+func allDecl[T Declaration](p map[string]*Package) (out []Declaration) {
 	for _, pkg := range p {
 		for _, file := range pkg.Files {
 			for _, decl := range file.Declarations {
@@ -314,7 +288,7 @@ func allDecl[T Declaration](p []*Package) (out []Declaration) {
 	return
 }
 
-func pkgDecl[T Declaration](pkgName string, p []*Package) (out []Declaration) {
+func pkgDecl[T Declaration](pkgName string, p map[string]*Package) (out []Declaration) {
 	for _, pkg := range p {
 		if pkg.Name != pkgName {
 			continue
@@ -330,7 +304,7 @@ func pkgDecl[T Declaration](pkgName string, p []*Package) (out []Declaration) {
 	return
 }
 
-func pkgNamedDecl[T Declaration](pkgName, declName string, p []*Package) (out Declaration) {
+func pkgNamedDecl[T Declaration](pkgName, declName string, p map[string]*Package) (out Declaration) {
 	for _, pkg := range p {
 		if pkg.Name != pkgName {
 			continue
@@ -348,7 +322,7 @@ func pkgNamedDecl[T Declaration](pkgName, declName string, p []*Package) (out De
 	return
 }
 
-func pkgTypeDecl[T Declaration](pkgName, typeName string, p []*Package) (out []Declaration) {
+func pkgTypeDecl[T Declaration](pkgName, typeName string, p map[string]*Package) (out []Declaration) {
 	for _, pkg := range p {
 		if pkg.Name != pkgName {
 			continue

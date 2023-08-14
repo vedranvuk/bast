@@ -6,27 +6,32 @@
 
 package bast
 
+// Declaration represents a top level declaration in a Go file.
+type Declaration interface {
+	// GetName returns the Declaration name.
+	GetName() string
+}
+
 // Package contians info about a Go package.
 type Package struct {
 	// Name is the package name, without path.
 	Name string
 	// Files is a list of files in the package.
-	Files []*File
+	Files map[string]*File
 }
 
 // File contians info about a Go source file.
 type File struct {
-	// Comments are the file comments, grouped by separation, without positions,
-	// including docs.
+	// Comments are the file comments, grouped by separation, including docs.
 	Comments [][]string
 	// Doc is the file doc comment.
 	Doc []string
 	// Name is the File name, without path.
 	Name string
 	// Imports is a list of file imports.
-	Imports []*Import
+	Imports map[string]*Import
 	// Declarations is a list of top level declarations in the file.
-	Declarations []Declaration
+	Declarations map[string]Declaration
 }
 
 // Import contians info about an import.
@@ -41,12 +46,6 @@ type Import struct {
 	Path string
 }
 
-// Declaration represents a top level declaration in a Go file.
-type Declaration interface {
-	// GetName returns the Declaration name.
-	GetName() string
-}
-
 // Func contains info about a function.
 type Func struct {
 	// Comment is the func comment.
@@ -56,11 +55,11 @@ type Func struct {
 	// Name is the func name.
 	Name string
 	// TypeParams are type parameters.
-	TypeParams []*Field
+	TypeParams map[string]*Field
 	//  Params is a list of func arguments.
-	Params []*Field
+	Params map[string]*Field
 	// Results is a list of func returns.
-	Results []*Field
+	Results map[string]*Field
 }
 
 // Method contains info about a method.
@@ -68,7 +67,7 @@ type Method struct {
 	// Func embeds all Func properties.
 	Func
 	// Receiver is the method receiver.
-	Receivers []*Field
+	Receivers map[string]*Field
 }
 
 // Const contains info about a constant.
@@ -99,7 +98,7 @@ type Var struct {
 	Value string
 }
 
-// Struct contains info about a struct.
+// Type contains info about a type.
 type Type struct {
 	// Comment is the struct comment.
 	Comment []string
@@ -122,7 +121,7 @@ type Interface struct {
 	// Name is the interface name.
 	Name string
 	// Methods is a list of methods defined by the interface.
-	Methods []*Method
+	Methods map[string]*Method
 }
 
 // Struct contains info about a struct.
@@ -134,10 +133,10 @@ type Struct struct {
 	// Name is the struct name.
 	Name string
 	// Fields is a list of struct fields.
-	Fields []*Field
+	Fields map[string]*Field
 }
 
-// Field contains info about a struct field, function or method receiver,
+// Field contains info about a struct field, method receiver, or method or func
 // type params, params or results.
 type Field struct {
 	// Comment is the field comment.
@@ -151,6 +150,59 @@ type Field struct {
 	// Tag is the field raw tag string.
 	Tag string
 }
+
+// NewPackage returns a new *Package.
+func NewPackage() *Package {
+	return &Package{
+		Files: make(map[string]*File),
+	}
+}
+
+// NewFile returns a new *File.
+func NewFile() *File {
+	return &File{
+		Imports:      make(map[string]*Import),
+		Declarations: make(map[string]Declaration),
+	}
+}
+
+// NewImport returns a new *Import.
+func NewImport() *Import { return &Import{} }
+
+// NewFunc returns a new *Func.
+func NewFunc() *Func {
+	return &Func{
+		TypeParams: make(map[string]*Field),
+		Params:     make(map[string]*Field),
+		Results:    make(map[string]*Field),
+	}
+}
+
+// NewMethod returns a new *Method.
+func NewMethod() *Method {
+	return &Method{
+		Func:      *NewFunc(),
+		Receivers: map[string]*Field{},
+	}
+}
+
+// NewConst returns a new *Const.
+func NewConst() *Const { return &Const{} }
+
+// NewVar returns a new *Var.
+func NewVar() *Var { return &Var{} }
+
+// NewType returns a new *Type.
+func NewType() *Type { return &Type{} }
+
+// NewInterface returns a new *Interface.
+func NewInterface() *Interface { return &Interface{Methods: make(map[string]*Method)} }
+
+// NewStruct returns a new *Struct.
+func NewStruct() *Struct { return &Struct{Fields: make(map[string]*Field)} }
+
+// NewField returns a new *Field.
+func NewField() *Field { return &Field{} }
 
 func (self *Package) GetName() string   { return self.Name }
 func (self *File) GetName() string      { return self.Name }
