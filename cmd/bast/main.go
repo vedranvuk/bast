@@ -105,7 +105,7 @@ func main() {
 	}
 	if !*overwrite {
 		if _, err = os.Stat(*output); err == nil {
-			fatal(fmt.Errorf("target exists: %w", err))
+			fatal(fmt.Errorf("target exists: %s", *output))
 		} else if !errors.Is(err, os.ErrNotExist) {
 			fatal(fmt.Errorf("stat target: %w", err))
 		}
@@ -117,6 +117,9 @@ func main() {
 		if err = tmpl.Execute(os.Stdout, data); err != nil {
 			fatal(fmt.Errorf("execute template: %w", err))
 		}
+	}
+	if err = os.MkdirAll(filepath.Dir(*output), os.ModePerm); err != nil {
+		fatal(fmt.Errorf("make output dir: %w", err))
 	}
 	var outfile *os.File
 	if outfile, err = os.OpenFile(*output, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm); err != nil {
@@ -220,10 +223,15 @@ Bast functions
     fieldset        Return methods 
     fieldnames      Return names of struct fields from package
   Additional string utilities     
-    trimpfx    remove 2nd param defining suffix from 1st param.
-    trimsfx    remove 2nd param defining prefix from 1st param.
-    join       join 2nd+ params using 1st param defining separator.
-    repeat     repeat 1st param, delimiting with 2nd, 3rd param times.
+    trimpfx      remove 2nd param defining suffix from 1st param.
+    trimsfx      remove 2nd param defining prefix from 1st param.
+	lowercase    lowercases input.
+	uppercase    uppercases input.
+    join         join 2nd+ params using 1st param defining separator.
+    repeat       repeat 1st param, delimiting with 2nd, 3rd param times.
+  Additional utilities
+    datefmt       Return formated now using go time formatting layout.
+    dateutcfmt    Return formated nowutc using go time formatting layout.
 Retrieve a declaration from package by name.
   Param 1 = package name, param 2 = declaration name.
     var          

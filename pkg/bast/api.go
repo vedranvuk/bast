@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -36,11 +37,14 @@ func Load(patterns ...string) (bast *Bast, err error) {
 		}
 		pkgs []*packages.Package
 	)
+	bast = new(Bast)
+	bast.Packages = make(map[string]*Package)
+	if len(patterns) == 0 {
+		return
+	}
 	if pkgs, err = packages.Load(config, patterns...); err != nil {
 		return nil, fmt.Errorf("load error: %w", err)
 	}
-	bast = new(Bast)
-	bast.Packages = make(map[string]*Package)
 	for idx, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
@@ -60,15 +64,23 @@ type Bast struct {
 	Packages map[string]*Package
 }
 
+// New returns a new, empty *Bast.
+func New() *Bast { return &Bast{make(map[string]*Package)} }
+
 // FuncMap returns a funcmap for use with text/template templates.
 func (self *Bast) FuncMap() template.FuncMap {
 	return template.FuncMap{
 		// String utils
-		"trimpfx": strings.TrimPrefix,
-		"trimsfx": strings.TrimSuffix,
-		"split":   strings.Split,
-		"join":    self._join,
-		"repeat":  self._repeat,
+		"trimpfx":   strings.TrimPrefix,
+		"trimsfx":   strings.TrimSuffix,
+		"lowercase": strings.ToLower,
+		"uppercase": strings.ToUpper,
+		"split":     strings.Split,
+		"join":      self._join,
+		"repeat":    self._repeat,
+		// Other utils
+		"datefmt":    self._datefmt,
+		"dateutcfmt": self._dateutcfmt,
 		// Retrieval utils
 		"varsoftype":   self._varsOfType,
 		"constsoftype": self._constsOfType,
@@ -100,6 +112,10 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"allstructs":    self._allstructs,
 	}
 }
+
+func (self *Bast) _datefmt(layout string) string { return time.Now().Format(layout) }
+
+func (self *Bast) _dateutcfmt(layout string) string { return time.Now().UTC().Format(layout) }
 
 // _repeat repeats string s n times, separates it with sep and returns it.
 func (self *Bast) _repeat(s, delim string, n int) string {
