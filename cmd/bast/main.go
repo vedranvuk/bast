@@ -35,16 +35,19 @@ func main() {
 		goinput   []string
 		vars      = make(map[string]string)
 	)
+
 	fset.Usage = func() {
 		fmt.Printf("Usage: bast -i <input-filename> ...-g <go-input> [options].\n")
 		fmt.Println()
 		fset.PrintDefaults()
 	}
+
 	fset.Func("g", "Go file or package input (file, dir, module path).",
 		func(value string) error {
 			goinput = append(goinput, value)
 			return nil
 		})
+
 	fset.Func("v", "Define a variable.",
 		func(value string) error {
 			var key, val, valid = strings.Cut(value, "=")
@@ -57,21 +60,25 @@ func main() {
 			vars[key] = val
 			return nil
 		})
+
 	if len(os.Args[1:]) == 0 {
 		fset.Usage()
 		os.Exit(0)
 	}
+
 	fset.Parse(os.Args[1:])
 	if *ref {
 		printRef()
 		os.Exit(0)
 	}
+
 	if *input == "" {
 		fatal(errors.New("no template specified"))
 	}
 	if len(goinput) == 0 {
 		fatal(errors.New("no go input files specified"))
 	}
+
 	var (
 		err  error
 		data = struct {
@@ -79,6 +86,7 @@ func main() {
 			Bast *bast.Bast
 		}{vars, nil}
 	)
+
 	if data.Bast, err = bast.Load(goinput...); err != nil {
 		fatal(err)
 	}

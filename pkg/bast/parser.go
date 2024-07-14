@@ -51,8 +51,6 @@ func parseDeclarations(in ast.Node, out map[string]Declaration) {
 				switch s := spec.(type) {
 				case *ast.ValueSpec:
 					parseVar(s, out)
-				default:
-					panic("!")
 				}
 			}
 		case token.TYPE:
@@ -62,7 +60,7 @@ func parseDeclarations(in ast.Node, out map[string]Declaration) {
 					if s.Assign != token.NoPos {
 						continue
 					}
-					switch x := s.Type.(type) {
+					switch s.Type.(type) {
 					case *ast.InterfaceType:
 						parseInterface(s, out)
 					case *ast.StructType:
@@ -77,17 +75,9 @@ func parseDeclarations(in ast.Node, out map[string]Declaration) {
 						parseType(s, out)
 					case *ast.MapType:
 						parseType(s, out)
-					default:
-						_ = x
-						panic("parseDeclarations: unsuported gendecl spec type")
 					}
-				default:
-					panic("parseDeclarations: unsupported gendecl spec")
 				}
 			}
-		case token.IMPORT:
-		default:
-			panic("parseDeclarations: unsupported gendecl token")
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
@@ -95,8 +85,6 @@ func parseDeclarations(in ast.Node, out map[string]Declaration) {
 		} else {
 			parseFunc(n, out)
 		}
-	default:
-		panic("parseDeclarations: unsupported node")
 	}
 	return
 }
@@ -119,6 +107,7 @@ func parseImportSpec(in *ast.ImportSpec, out map[string]*Import) {
 	val.Path = printExpr(in.Path)
 	parseCommentGroup(in.Doc, &val.Doc)
 	parseCommentGroup(in.Comment, &val.Comment)
+	out[in.Name.Name] = val
 	return
 }
 
