@@ -19,4 +19,4 @@ go.work
 
 # Project specific
 ./cmd/bast/bast
-./cmd/tester/tester
+./cmd/bast/bast.exe
