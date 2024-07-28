@@ -98,6 +98,15 @@ func new() *Bast {
 	}
 }
 
+// PackageNames returns names of all parsed packages.
+func (self *Bast) PackageNames() (out []string) {
+	out = make([]string, 0, len(self.Packages))
+	for _, v := range self.Packages {
+		out = append(out, v.Name)
+	}
+	return
+}
+
 // Var returns a variable whose Name==declName from a package named pkgName.
 func (self *Bast) Var(pkgName, declName string) (out Declaration) {
 	return pkgNamedDecl[*Var](pkgName, declName, self.Packages)

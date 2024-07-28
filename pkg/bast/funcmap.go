@@ -21,6 +21,7 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"datefmt":    self._datefmt,
 		"dateutcfmt": self._dateutcfmt,
 		// Retrieval utils
+		"packagenames": self.PackageNames,
 		"varsoftype":   self.VarsOfType,
 		"constsoftype": self.ConstsOfType,
 		"methodset":    self.MethodSet,
@@ -67,4 +68,3 @@ func (self *Bast) _repeat(s, delim string, n int) string {
 func (self *Bast) _datefmt(layout string) string { return time.Now().Format(layout) }
 
 func (self *Bast) _dateutcfmt(layout string) string { return time.Now().UTC().Format(layout) }
-
