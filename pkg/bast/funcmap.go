@@ -26,7 +26,7 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"constsoftype": self.ConstsOfType,
 		"methodset":    self.MethodSet,
 		"fieldnames":   self.FieldNames,
-		// Get one by package and declaration name.
+		// Get one by name from specific package.
 		"var":       self.Var,
 		"const":     self.Const,
 		"type":      self.Type,
@@ -34,15 +34,15 @@ func (self *Bast) FuncMap() template.FuncMap {
 		"method":    self.Method,
 		"interface": self.Interface,
 		"struct":    self.Struct,
-		// Get all by package.
-		"vars":       self.Vars,
-		"consts":     self.Consts,
-		"types":      self.Types,
-		"funcs":      self.Funcs,
-		"methods":    self.Methods,
-		"interfaces": self.Interfaces,
-		"structs":    self.Structs,
-		// Get all by kind.
+		// Get all by kind from specific package.
+		"pkgvars":       self.PkgVars,
+		"pkgconsts":     self.PkgConsts,
+		"pkgtypes":      self.PkgTypes,
+		"pkgfuncs":      self.PkgFuncs,
+		"pkgmethods":    self.PkgMethods,
+		"pkginterfaces": self.PkgInterfaces,
+		"pkgstructs":    self.PkgStructs,
+		// Get all by kind from all packages.
 		"allvars":       self.AllVars,
 		"allconsts":     self.AllConsts,
 		"alltypes":      self.AllTypes,
@@ -65,6 +65,8 @@ func (self *Bast) _repeat(s, delim string, n int) string {
 	return strings.Join(a, delim)
 }
 
+// _datefmt formats current time according to layout.
 func (self *Bast) _datefmt(layout string) string { return time.Now().Format(layout) }
 
+// _datefmt formats current time in UTC according to layout.
 func (self *Bast) _dateutcfmt(layout string) string { return time.Now().UTC().Format(layout) }
