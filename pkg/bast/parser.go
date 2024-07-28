@@ -26,8 +26,8 @@ func (self *Bast) parsePackage(in *packages.Package, out map[string]*Package) {
 func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
 	var val = NewFile()
 	val.Name = name
-	var cg []string
 	for _, comment := range in.Comments {
+		var cg []string
 		self.parseCommentGroup(comment, &cg)
 		val.Comments = append(val.Comments, cg)
 	}
