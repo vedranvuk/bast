@@ -24,6 +24,7 @@ import (
 // Bast is a top level struct that contains parsed go packages.
 // It also implements all functions usable from a text/template.
 type Bast struct {
+	// fset is the fileset of the parsed package.
 	fset *token.FileSet
 	// Packages is a list of packages parsed into bast using Load().
 	//
@@ -77,7 +78,7 @@ func ParsePackage(dir string, config *Config) (bast *Bast, err error) {
 		}
 		bast.parsePackage(pkg, bast.Packages)
 	}
-	
+
 	return
 }
 
@@ -124,10 +125,8 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []Declaration) {
 		for _, decl := range file.Declarations {
 
 			if v, ok := decl.(*Method); ok {
-				for _, recv := range v.Receivers {
-					if strings.TrimLeft(recv.Type, "*") == typeName {
-						out = append(out, v)
-					}
+				if strings.TrimLeft(v.Receiver.Type, "*") == typeName {
+					out = append(out, v)
 				}
 			}
 		}
@@ -160,32 +159,32 @@ func (self *Bast) Var(pkgName, declName string) (out Declaration) {
 	return decl[*Var](pkgName, declName, self.Packages)
 }
 
-// Var returns a const whose Name==declName from a package named pkgName.
+// Const returns a const whose Name==declName from a package named pkgName.
 func (self *Bast) Const(pkgName, declName string) (out Declaration) {
 	return decl[*Const](pkgName, declName, self.Packages)
 }
 
-// Var returns a type whose Name==declName from a package named pkgName.
+// Type returns a type whose Name==declName from a package named pkgName.
 func (self *Bast) Type(pkgName, declName string) (out Declaration) {
 	return decl[*Type](pkgName, declName, self.Packages)
 }
 
-// Var returns a func whose Name==declName from a package named pkgName.
+// Func returns a func whose Name==declName from a package named pkgName.
 func (self *Bast) Func(pkgName, declName string) (out Declaration) {
 	return decl[*Func](pkgName, declName, self.Packages)
 }
 
-// Var returns a method whose Name==declName from a package named pkgName.
+// Method returns a method whose Name==declName from a package named pkgName.
 func (self *Bast) Method(pkgName, declName string) (out Declaration) {
 	return decl[*Method](pkgName, declName, self.Packages)
 }
 
-// Var returns a interface whose Name==declName from a package named pkgName.
+// Interface returns a interface whose Name==declName from a package named pkgName.
 func (self *Bast) Interface(pkgName, declName string) (out Declaration) {
 	return decl[*Interface](pkgName, declName, self.Packages)
 }
 
-// Var returns a struct whose Name==declName from a package named pkgName.
+// Struct returns a struct whose Name==declName from a package named pkgName.
 func (self *Bast) Struct(pkgName, declName string) (out Declaration) {
 	return decl[*Struct](pkgName, declName, self.Packages)
 }
@@ -195,7 +194,7 @@ func (self *Bast) PkgVars(pkgName string) (out []Declaration) {
 	return pkgDecl[*Var](pkgName, self.Packages)
 }
 
-// Vars returns all variables in self, across all packages.
+// PgkConsts returns all variables in self, across all packages.
 func (self *Bast) PkgConsts(pkgName string) (out []Declaration) {
 	return pkgDecl[*Const](pkgName, self.Packages)
 }
@@ -210,27 +209,27 @@ func (self *Bast) PkgFuncs(pkgName string) (out []Declaration) {
 	return pkgDecl[*Func](pkgName, self.Packages)
 }
 
-// Funcs returns all functions in self, across all packages.
+// PkgMethods returns all functions in self, across all packages.
 func (self *Bast) PkgMethods(pkgName string) (out []Declaration) {
 	return pkgDecl[*Method](pkgName, self.Packages)
 }
 
-// Funcs returns all functions in self, across all packages.
+// PkgInterfaces returns all functions in self, across all packages.
 func (self *Bast) PkgInterfaces(pkgName string) (out []Declaration) {
 	return pkgDecl[*Interface](pkgName, self.Packages)
 }
 
-// Funcs returns all functions in self, across all packages.
+// PkgStructs returns all functions in self, across all packages.
 func (self *Bast) PkgStructs(pkgName string) (out []Declaration) {
 	return pkgDecl[*Struct](pkgName, self.Packages)
 }
 
-// AllVarsž returns all variables in self, across all packages.
+// AllVars returns all variables in self, across all packages.
 func (self *Bast) AllVars() (out []Declaration) {
 	return allDecl[*Var](self.Packages)
 }
 
-// Vars returns all variables in self, across all packages.
+// AllConsts returns all variables in self, across all packages.
 func (self *Bast) AllConsts() (out []Declaration) {
 	return allDecl[*Const](self.Packages)
 }

@@ -36,8 +36,6 @@ type File struct {
 
 // Import contians info about an import.
 type Import struct {
-	// Comment is the import comment.
-	Comment []string
 	// Doc is the import doc.
 	Doc []string
 	// Name is the import name, possibly empty, "." or some custom name.
@@ -48,8 +46,6 @@ type Import struct {
 
 // Func contains info about a function.
 type Func struct {
-	// Comment is the func comment.
-	Comment []string
 	// Doc is the func doc comment.
 	Doc []string
 	// Name is the func name.
@@ -67,13 +63,13 @@ type Method struct {
 	// Func embeds all Func properties.
 	Func
 	// Receiver is the method receiver.
-	Receivers map[string]*Field
+	//
+	// Receiver is nil if this is an interface method without a receiver.
+	Receiver *Field
 }
 
 // Const contains info about a constant.
 type Const struct {
-	// Comment is the const comment.
-	Comment []string
 	// Doc is the const doc comment.
 	Doc []string
 	// Name is the constant name.
@@ -86,8 +82,6 @@ type Const struct {
 
 // Var contains info about a variable.
 type Var struct {
-	// Comment is the const comment.
-	Comment []string
 	// Doc is the const doc comment.
 	Doc []string
 	// Name is the constant name.
@@ -100,8 +94,6 @@ type Var struct {
 
 // Type contains info about a type.
 type Type struct {
-	// Comment is the struct comment.
-	Comment []string
 	// Doc is the struct doc comment.
 	Doc []string
 	// Name is the struct name.
@@ -114,20 +106,20 @@ type Type struct {
 
 // Interface contains info about an interface.
 type Interface struct {
-	// Comment is the interface comment.
-	Comment []string
 	// Doc is the interface doc comment.
 	Doc []string
 	// Name is the interface name.
 	Name string
 	// Methods is a list of methods defined by the interface.
 	Methods map[string]*Method
+	// Interface is a list of inherited interfaces.
+	//
+	// Map is keyed by the embeded interface type name.
+	Interfaces map[string]*Field
 }
 
 // Struct contains info about a struct.
 type Struct struct {
-	// Comment is the struct comment.
-	Comment []string
 	// Doc is the struct doc comment.
 	Doc []string
 	// Name is the struct name.
@@ -139,8 +131,6 @@ type Struct struct {
 // Field contains info about a struct field, method receiver, or method or func
 // type params, params or results.
 type Field struct {
-	// Comment is the field comment.
-	Comment []string
 	// Doc is the field doc comment.
 	Doc []string
 	// Name is the field name.
@@ -149,6 +139,8 @@ type Field struct {
 	Type string
 	// Tag is the field raw tag string.
 	Tag string
+	// Unnamed is true if field is unnamed and specifies the type only.
+	Unnamed bool
 }
 
 // NewPackage returns a new *Package.
@@ -181,8 +173,7 @@ func NewFunc() *Func {
 // NewMethod returns a new *Method.
 func NewMethod() *Method {
 	return &Method{
-		Func:      *NewFunc(),
-		Receivers: map[string]*Field{},
+		Func: *NewFunc(),
 	}
 }
 
@@ -196,7 +187,12 @@ func NewVar() *Var { return &Var{} }
 func NewType() *Type { return &Type{} }
 
 // NewInterface returns a new *Interface.
-func NewInterface() *Interface { return &Interface{Methods: make(map[string]*Method)} }
+func NewInterface() *Interface {
+	return &Interface{
+		Methods:    make(map[string]*Method),
+		Interfaces: make(map[string]*Field),
+	}
+}
 
 // NewStruct returns a new *Struct.
 func NewStruct() *Struct { return &Struct{Fields: make(map[string]*Field)} }
