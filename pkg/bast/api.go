@@ -32,61 +32,52 @@ type Bast struct {
 	Packages map[string]*Package
 }
 
-// Load loads and returns bast of Go packages named by the given patterns.
-//
-// Paths can be absolute or relative paths to a directory containing go source
-// files possibly defining a package or a cmd or a go file. It can also be a go
-// module path loading of which depends on the current go environment.
-//
-// If an error in loading a file or a package occurs the error returned will be
-// the first error of the first package that contains an error. Nil Bast is
-// returned in case of an error.
-//
-// Patterns which name file paths are parsed into an unnamed package in bast.
-func Load(patterns ...string) (bast *Bast, err error) {
-	var (
-		config = &packages.Config{
-			Mode: packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName,
-			Logf: func(format string, args ...any) { fmt.Printf(format, args...) },
-		}
-		pkgs []*packages.Package
-	)
-	bast = new()
-	if len(patterns) == 0 {
-		return
-	}
-	if pkgs, err = packages.Load(config, patterns...); err != nil {
-		return nil, fmt.Errorf("load error: %w", err)
-	}
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
-		}
-		bast.parsePackage(pkg, bast.Packages)
-	}
-	return
+// Config is the Load config.
+type Config struct {
+	// BuildDir is the directory where the build sistem is run.
+	BuildDir string
+	// BuildFlags are the flags to pass to the build system.
+	BuildFlags []string
+	// Env is a slice of environment variables to set when running the build.
+	Env []string
+	// Tests, if true will include tests in the generated AST.
+	Tests bool
 }
 
-// LoadPackage loads a single package.
-func LoadPackage(dir string) (bast *Bast, err error) {
+// ParsePackage loads a single package and returns its Bast or an error.
+//
+// An optional config configures the build system when parsing the package.
+func ParsePackage(dir string, config *Config) (bast *Bast, err error) {
+
 	var (
-		config = &packages.Config{
+		cfg = &packages.Config{
 			Mode: packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName,
 			Logf: func(format string, args ...any) { fmt.Printf(format, args...) },
 		}
 		pkgs []*packages.Package
 	)
+
+	if config != nil {
+		cfg.Dir = config.BuildDir
+		cfg.BuildFlags = config.BuildFlags
+		cfg.Env = config.Env
+		cfg.Tests = config.Tests
+	}
+
 	bast = new()
 	bast.fset = token.NewFileSet()
-	if pkgs, err = packages.Load(config, dir); err != nil {
+
+	if pkgs, err = packages.Load(cfg, dir); err != nil {
 		return nil, fmt.Errorf("load error: %w", err)
 	}
+
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
 		}
 		bast.parsePackage(pkg, bast.Packages)
 	}
+	
 	return
 }
 

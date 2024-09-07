@@ -6,7 +6,7 @@ import (
 )
 
 func TestBast(t *testing.T) {
-	var bast, err = LoadPackage(".")
+	var bast, err = ParsePackage("os", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

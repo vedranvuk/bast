@@ -19,9 +19,9 @@ func Print(w io.Writer, bast *Bast) {
 	DefaultConfig().Print(w, bast)
 }
 
-func DefaultConfig() *Config { return &Config{true, true, true, true, true, true, true} }
+func DefaultConfig() *PrintConfig { return &PrintConfig{true, true, true, true, true, true, true} }
 
-type Config struct {
+type PrintConfig struct {
 	PrintConsts     bool
 	PrintVars       bool
 	PrintTypes      bool
@@ -31,7 +31,7 @@ type Config struct {
 	PrintInterfaces bool
 }
 
-func (self *Config) Print(w io.Writer, bast *Bast) {
+func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 	var wr = tabwriter.NewWriter(w, 2, 2, 2, 32, 0)
 	var p = func(format string, args ...any) { fmt.Fprintf(wr, format, args...) }
 	for _, pkg := range bast.Packages {
