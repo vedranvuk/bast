@@ -13,4 +13,6 @@ func TestBast(t *testing.T) {
 		t.Fatal(err)
 	}
 	Print(os.Stdout, bast)
+
+	
 }
