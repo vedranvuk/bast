@@ -26,7 +26,8 @@ func main() {
 
 	var (
 		fset      = flag.NewFlagSet("bast", flag.ExitOnError)
-		input     = fset.String("i", "", "Input template file name.")
+		input     = fset.String("t", "", "Template file name.")
+		pkg       = fset.String("p", ".", "Package to parse.")
 		output    = fset.String("o", ".", "Output file name.")
 		ref       = fset.Bool("f", false, "Show BAST reference.")
 		overwrite = fset.Bool("w", false, "Overwrite conflicting files in output.")
@@ -37,16 +38,10 @@ func main() {
 	)
 
 	fset.Usage = func() {
-		fmt.Printf("Usage: bast -i <input-filename> ...-g <go-input> [options].\n")
+		fmt.Printf("Usage: bast -t <template> -p <package> [options].\n")
 		fmt.Println()
 		fset.PrintDefaults()
 	}
-
-	fset.Func("g", "Go file or package input (file, dir, module path).",
-		func(value string) error {
-			goinput = append(goinput, value)
-			return nil
-		})
 
 	fset.Func("v", "Define a variable.",
 		func(value string) error {
@@ -87,7 +82,7 @@ func main() {
 		}{vars, nil}
 	)
 
-	if data.Bast, err = bast.Load(goinput...); err != nil {
+	if data.Bast, err = bast.ParsePackage(*pkg, nil); err != nil {
 		fatal(err)
 	}
 	if *debug {
