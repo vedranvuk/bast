@@ -17,11 +17,11 @@ import (
 
 // Print prints bas to writer w.
 func Print(w io.Writer, bast *Bast) {
-	DefaultConfig().Print(w, bast)
+	DefaultPrintConfig().Print(w, bast)
 }
 
-// DefaultConfig returns the default print configuration.
-func DefaultConfig() *PrintConfig {
+// DefaultPrintConfig returns the default print configuration.
+func DefaultPrintConfig() *PrintConfig {
 	return &PrintConfig{true, true, true, true, true, true, true, true, true}
 }
 

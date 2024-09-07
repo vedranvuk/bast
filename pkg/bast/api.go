@@ -12,6 +12,7 @@ package bast
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/printer"
 	"go/token"
@@ -24,6 +25,8 @@ import (
 // Bast is a top level struct that contains parsed go packages.
 // It also implements all functions usable from a text/template.
 type Bast struct {
+	// config is the parser configuration.
+	config *ParseConfig
 	// fset is the fileset of the parsed package.
 	fset *token.FileSet
 	// Packages is a list of packages parsed into bast using Load().
@@ -33,48 +36,113 @@ type Bast struct {
 	Packages map[string]*Package
 }
 
-// Config is the Load config.
-type Config struct {
-	// BuildDir is the directory where the build sistem is run.
-	BuildDir string
-	// BuildFlags are the flags to pass to the build system.
+// ParseConfig is parser configuration.
+type ParseConfig struct {
+
+	// Dir is the directory in which to run the build system's query tool
+	// that provides information about the packages.
+	// If Dir is empty, the tool is run in the current directory.
+	Dir string
+
+	// BuildFlags is a list of command-line flags to be passed through to
+	// the build system's query tool.
 	BuildFlags []string
-	// Env is a slice of environment variables to set when running the build.
+
+	// Env is the environment to use when invoking the build system's query tool.
+	// If Env is nil, the current environment is used.
+	// As in os/exec's Cmd, only the last value in the slice for
+	// each environment key is used. To specify the setting of only
+	// a few variables, append to the current environment, as in:
+	//
+	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
+	//
 	Env []string
-	// Tests, if true will include tests in the generated AST.
+
+	// If Tests is set, the loader includes not just the packages
+	// matching a particular pattern but also any related test packages,
+	// including test-only variants of the package and the test executable.
+	//
+	// For example, when using the go command, loading "fmt" with Tests=true
+	// returns four packages, with IDs "fmt" (the standard package),
+	// "fmt [fmt.test]" (the package as compiled for the test),
+	// "fmt_test" (the test functions from source files in package fmt_test),
+	// and "fmt.test" (the test binary).
+	//
+	// In build systems with explicit names for tests,
+	// setting Tests may have no effect.
 	Tests bool
+
+	Comments bool
+
+	Docs bool
+
+	Imports bool
+
+	Vars bool
+
+	Consts bool
+
+	Types bool
+
+	Funcs bool
+
+	Methods bool
+
+	Structs bool
+
+	Interfaces bool
+}
+
+// DefaultParseConfig returns the default configuration.
+func DefaultParseConfig() *ParseConfig {
+	return &ParseConfig{
+		Dir:        ".",
+		Comments:   true,
+		Docs:       true,
+		Imports:    true,
+		Vars:       true,
+		Consts:     true,
+		Types:      true,
+		Funcs:      true,
+		Methods:    true,
+		Structs:    true,
+		Interfaces: true,
+	}
 }
 
 // ParsePackage loads a single package and returns its Bast or an error.
 //
 // An optional config configures the build system when parsing the package.
-func ParsePackage(dir string, config *Config) (bast *Bast, err error) {
+func ParsePackages(config *ParseConfig, patterns ...string) (bast *Bast, err error) {
+
+	bast = new()
+	if bast.config = config; bast.config == nil {
+		bast.config = DefaultParseConfig()
+	}
 
 	var (
 		cfg = &packages.Config{
-			Mode: packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName,
-			Logf: func(format string, args ...any) { fmt.Printf(format, args...) },
+			Mode:       packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName,
+			Logf:       func(format string, args ...any) { fmt.Printf(format, args...) },
+			Dir:        bast.config.Dir,
+			BuildFlags: bast.config.BuildFlags,
+			Env:        bast.config.Env,
+			Tests:      bast.config.Tests,
 		}
 		pkgs []*packages.Package
 	)
 
-	if config != nil {
-		cfg.Dir = config.BuildDir
-		cfg.BuildFlags = config.BuildFlags
-		cfg.Env = config.Env
-		cfg.Tests = config.Tests
-	}
-
-	bast = new()
-	bast.fset = token.NewFileSet()
-
-	if pkgs, err = packages.Load(cfg, dir); err != nil {
+	if pkgs, err = packages.Load(cfg, patterns...); err != nil {
 		return nil, fmt.Errorf("load error: %w", err)
 	}
 
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
-			return nil, fmt.Errorf("package error: %w", pkg.Errors[0])
+			var errs []error
+			for _, e := range pkg.Errors {
+				errs = append(errs, e)
+			}
+			return nil, fmt.Errorf("parse error: %w", errors.Join(errs...))
 		}
 		bast.parsePackage(pkg, bast.Packages)
 	}
