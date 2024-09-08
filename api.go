@@ -151,6 +151,29 @@ func (self *Bast) PackageNames() (out []string) {
 	return
 }
 
+// ResolveBasicType returns the basic type of a derived type under the
+// specified name. It returns an empty string if the base type was not found.
+func (self *Bast) ResolveBasicType(typeName string) string {
+
+	var o types.Object
+	for _, p := range self.Packages {
+		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
+			break
+		}
+	}
+
+	var t types.Type = o.Type()
+	for {
+		if t.Underlying() == t {
+			break
+		}
+		t = t.Underlying()
+	}
+
+	return t.String()
+}
+
+
 // VarsOfType returns all top level variable declarations from a package named
 // pkgName whose type name equals typeName.
 func (self *Bast) VarsOfType(pkgName, typeName string) (out []*Var) {
@@ -243,6 +266,41 @@ func (self *Bast) Interface(pkgName, declName string) (out *Interface) {
 // Struct returns a struct whose Name==declName from a package named pkgName.
 func (self *Bast) Struct(pkgName, declName string) (out *Struct) {
 	return decl[*Struct](pkgName, declName, self.Packages)
+}
+
+// Var returns a variable whose Name==declName from any package.
+func (self *Bast) AnyVar(declName string) (out *Var) {
+	return anyDecl[*Var](declName, self.Packages)
+}
+
+// Const returns a const whose Name==declName from from any package.
+func (self *Bast) AnyConst(declName string) (out *Const) {
+	return anyDecl[*Const](declName, self.Packages)
+}
+
+// Type returns a type whose Name==declName from from any package.
+func (self *Bast) AnyType(declName string) (out *Type) {
+	return anyDecl[*Type](declName, self.Packages)
+}
+
+// Func returns a func whose Name==declName from from any package.
+func (self *Bast) AnyFunc(declName string) (out *Func) {
+	return anyDecl[*Func](declName, self.Packages)
+}
+
+// Method returns a method whose Name==declName from from any package.
+func (self *Bast) AnyMethod(declName string) (out *Method) {
+	return anyDecl[*Method](declName, self.Packages)
+}
+
+// Interface returns a interface whose Name==declName from from any package.
+func (self *Bast) AnyInterface(declName string) (out *Interface) {
+	return anyDecl[*Interface](declName, self.Packages)
+}
+
+// Struct returns a struct whose Name==declName from from any package.
+func (self *Bast) AnyStruct(declName string) (out *Struct) {
+	return anyDecl[*Struct](declName, self.Packages)
 }
 
 // PkgVars returns all variables in self, across all packages.
@@ -384,6 +442,22 @@ func decl[T Declaration](pkgName, declName string, p map[string]*Package) (out T
 	return
 }
 
+// anyDecl returns a declaration named declName of model T from any package.
+func anyDecl[T Declaration](declName string, p map[string]*Package) (out T) {
+	for _, pkg := range p {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
+				if v, ok := decl.(T); ok {
+					if v.GetName() == declName {
+						return v
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 // pkgDecl returns all declarations of model T from a package in p named pkgName.
 func pkgDecl[T Declaration](pkgName string, p map[string]*Package) (out []T) {
 	for _, pkg := range p {
@@ -423,26 +497,4 @@ func (self *Bast) printExpr(in any) string {
 	var buf = bytes.Buffer{}
 	printer.Fprint(&buf, self.fset, in)
 	return buf.String()
-}
-
-// ResolveBasicType returns the basic type of a derived type under the
-// specified name. It returns an empty string if the base type was not found.
-func (self *Bast) ResolveBasicType(typeName string) string {
-
-	var o types.Object
-	for _, p := range self.Packages {
-		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
-			break
-		}
-	}
-
-	var t types.Type = o.Type()
-	for {
-		if t.Underlying() == t {
-			break
-		}
-		t = t.Underlying()
-	}
-
-	return t.String()
 }
