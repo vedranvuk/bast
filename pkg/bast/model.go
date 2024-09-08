@@ -6,6 +6,8 @@
 
 package bast
 
+import "golang.org/x/tools/go/packages"
+
 // Declaration represents a top level declaration in a Go file.
 type Declaration interface {
 	// GetName returns the Declaration name.
@@ -18,6 +20,8 @@ type Package struct {
 	Name string
 	// Files is a list of files in the package.
 	Files map[string]*File
+	// pkg is the parsed package.
+	pkg *packages.Package
 }
 
 // File contians info about a Go source file.

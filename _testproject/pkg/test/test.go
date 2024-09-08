@@ -24,11 +24,18 @@ func TestFunc6() (a, b, c int) { return 0, 1, 2 }
 // TestFunc7 is a func with a type parameter.
 func TestFunc7[T any](in int) (out int) { return 0 }
 
+// CustomType is a custom type.
+type CustomType int
+
 // TestStruct is an empty struct.
 type TestStruct1 struct{}
 
 // TestStruct2 Ha sfields.
 type TestStruct2 struct {
+	// CustomType is an unnamed field of custom type.
+	CustomType
+	// NamedCustomType is a field of custom type with a name.
+	NamedCustomType CustomType
 	// FooField is a struct field.
 	FooField string
 	// BarField is also a field but has a tag.

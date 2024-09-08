@@ -23,6 +23,8 @@ func (self *Bast) parsePackage(in *packages.Package, out map[string]*Package) {
 		self.parseFile(filepath.Base(in.CompiledGoFiles[idx]), file, val.Files)
 	}
 
+	val.pkg = in
+
 	out[val.Name] = val
 
 	return
@@ -33,7 +35,7 @@ func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
 	var val = NewFile()
 	val.Name = name
 
-	if self.config.Comments {
+	if self.config.ParsedElements|Comments != 0 {
 		for _, comment := range in.Comments {
 			var cg []string
 			self.parseCommentGroup(comment, &cg)
@@ -41,11 +43,11 @@ func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
 		}
 	}
 
-	if self.config.Docs {
+	if self.config.ParsedElements|Docs != 0 {
 		self.parseCommentGroup(in.Doc, &val.Doc)
 	}
 
-	if self.config.Imports {
+	if self.config.ParsedElements|Imports != 0 {
 		for _, imprt := range in.Imports {
 			self.parseImportSpec(imprt, val.Imports)
 		}
@@ -65,7 +67,7 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 	case *ast.GenDecl:
 		switch n.Tok {
 		case token.CONST:
-			if !self.config.Consts {
+			if self.config.ParsedElements|Consts == 0 {
 				return
 			}
 			self.parseConsts(n, out)
@@ -73,7 +75,7 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
 				case *ast.ValueSpec:
-					if !self.config.Vars {
+					if self.config.ParsedElements|Vars == 0 {
 						return
 					}
 					self.parseVar(s, out)
@@ -88,37 +90,37 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 					}
 					switch s.Type.(type) {
 					case *ast.InterfaceType:
-						if !self.config.Interfaces {
+						if self.config.ParsedElements|Interfaces == 0 {
 							return
 						}
 						self.parseInterface(n, s, out)
 					case *ast.StructType:
-						if !self.config.Structs {
+						if self.config.ParsedElements|Structs == 0 {
 							return
 						}
 						self.parseStruct(n, s, out)
 					case *ast.ArrayType:
-						if !self.config.Types {
+						if self.config.ParsedElements|Types == 0 {
 							return
 						}
 						self.parseType(n, s, out)
 					case *ast.FuncType:
-						if !self.config.Types {
+						if self.config.ParsedElements|Types == 0 {
 							return
 						}
 						self.parseFuncType(n, s, out)
 					case *ast.Ident:
-						if !self.config.Types {
+						if self.config.ParsedElements|Types == 0 {
 							return
 						}
 						self.parseType(n, s, out)
 					case *ast.ChanType:
-						if !self.config.Types {
+						if self.config.ParsedElements|Types == 0 {
 							return
 						}
 						self.parseType(n, s, out)
 					case *ast.MapType:
-						if !self.config.Types {
+						if self.config.ParsedElements|Types == 0 {
 							return
 						}
 						self.parseType(n, s, out)
@@ -128,12 +130,12 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
-			if !self.config.Methods {
+			if self.config.ParsedElements|Methods == 0 {
 				return
 			}
 			self.parseMethod(n, out)
 		} else {
-			if !self.config.Funcs {
+			if self.config.ParsedElements|Funcs == 0 {
 				return
 			}
 			self.parseFunc(n, out)
@@ -143,6 +145,9 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 }
 
 func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
+	if self.config.ParsedElements|Docs != 0 {
+		return
+	}
 	if in == nil {
 		return
 	}
@@ -158,9 +163,7 @@ func (self *Bast) parseImportSpec(in *ast.ImportSpec, out map[string]*Import) {
 		val.Name = self.printExpr(in.Name)
 	}
 	val.Path = self.printExpr(in.Path)
-	if self.config.Docs {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(in.Doc, &val.Doc)
 	if in.Name != nil {
 		out[in.Name.Name] = val
 	} else {
@@ -177,9 +180,7 @@ func (self *Bast) parseConsts(in *ast.GenDecl, out map[string]Declaration) {
 			for i := 0; i < len(s.Names); i++ {
 				var val = NewConst()
 				val.Name = self.printExpr(s.Names[i])
-				if self.config.Docs {
-					self.parseCommentGroup(s.Doc, &val.Doc)
-				}
+				self.parseCommentGroup(s.Doc, &val.Doc)
 				if s.Type != nil {
 					val.Type = self.printExpr(s.Type)
 					lastType = val.Type
@@ -201,9 +202,7 @@ func (self *Bast) parseVar(in *ast.ValueSpec, out map[string]Declaration) {
 	for i := 0; i < len(in.Names); i++ {
 		var val = NewVar()
 		val.Name = self.printExpr(in.Names[i])
-		if self.config.Docs {
-			self.parseCommentGroup(in.Doc, &val.Doc)
-		}
+		self.parseCommentGroup(in.Doc, &val.Doc)
 
 		val.Type = self.printExpr(in.Type)
 		if in.Values != nil {
@@ -221,9 +220,7 @@ func (self *Bast) parseVar(in *ast.ValueSpec, out map[string]Declaration) {
 func (self *Bast) parseFunc(in *ast.FuncDecl, out map[string]Declaration) {
 	var val = NewFunc()
 	val.Name = self.printExpr(in.Name)
-	if self.config.Docs {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
 	self.parseFieldList(in.Type.Params, val.Params)
 	self.parseFieldList(in.Type.Results, val.Results)
@@ -232,9 +229,7 @@ func (self *Bast) parseFunc(in *ast.FuncDecl, out map[string]Declaration) {
 
 func (self *Bast) parseMethod(in *ast.FuncDecl, out map[string]Declaration) {
 	var val = NewMethod()
-	if self.config.Docs {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(in.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 
 	if in.Recv != nil {
@@ -254,9 +249,7 @@ func (self *Bast) parseMethod(in *ast.FuncDecl, out map[string]Declaration) {
 
 func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
 	var val = NewFunc()
-	if self.config.Docs {
-		self.parseCommentGroup(g.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 	var ft = in.Type.(*ast.FuncType)
 	self.parseFieldList(ft.TypeParams, val.TypeParams)
@@ -268,9 +261,7 @@ func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out map[string
 
 func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
 	var val = NewType()
-	if self.config.Docs {
-		self.parseCommentGroup(g.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 	val.Type = self.printExpr(in.Type)
 	val.IsAlias = in.Assign.IsValid()
@@ -291,9 +282,7 @@ func (self *Bast) parseFieldList(in *ast.FieldList, out map[string]*Field) {
 		}
 		for _, name := range field.Names {
 			var val = NewField()
-			if self.config.Docs {
-				self.parseCommentGroup(field.Doc, &val.Doc)
-			}
+			self.parseCommentGroup(field.Doc, &val.Doc)
 			val.Name = self.printExpr(name)
 			val.Type = self.printExpr(field.Type)
 			val.Tag = self.printExpr(field.Tag)
@@ -310,26 +299,20 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out map[strin
 	}
 
 	var val = NewInterface()
-	if self.config.Docs {
-		self.parseCommentGroup(g.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 
 	for _, method := range it.Methods.List {
 		if len(method.Names) == 0 {
 			var intf = NewField()
-			if self.config.Docs {
-				self.parseCommentGroup(method.Doc, &intf.Doc)
-			}
+			self.parseCommentGroup(method.Doc, &intf.Doc)
 			intf.Type = self.printExpr(method.Type)
 			intf.Name = intf.Type
 			intf.Unnamed = true
 			val.Interfaces[intf.Type] = intf
 		} else {
 			var m = NewMethod()
-			if self.config.Docs {
-				self.parseCommentGroup(method.Doc, &m.Doc)
-			}
+			self.parseCommentGroup(method.Doc, &m.Doc)
 			m.Name = self.printExpr(method.Names[0])
 			var ft = method.Type.(*ast.FuncType)
 			self.parseFieldList(ft.TypeParams, m.TypeParams)
@@ -350,9 +333,7 @@ func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out map[string]D
 		return
 	}
 	var val = NewStruct()
-	if self.config.Docs {
-		self.parseCommentGroup(g.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 	for _, field := range st.Fields.List {
 		self.parseStructField(field, val.Fields)
@@ -366,6 +347,7 @@ func (self *Bast) parseStructField(in *ast.Field, out map[string]*Field) {
 	var val = NewField()
 
 	if len(in.Names) == 0 {
+		self.parseCommentGroup(in.Doc, &val.Doc)
 		val.Unnamed = true
 		val.Type = self.printExpr(in.Type)
 		val.Tag = self.printExpr(in.Tag)
@@ -374,9 +356,7 @@ func (self *Bast) parseStructField(in *ast.Field, out map[string]*Field) {
 	}
 
 	for _, name := range in.Names {
-		if self.config.Docs {
-			self.parseCommentGroup(in.Doc, &val.Doc)
-		}
+		self.parseCommentGroup(in.Doc, &val.Doc)
 		val.Name = self.printExpr(name)
 		val.Type = self.printExpr(in.Type)
 		val.Tag = self.printExpr(in.Tag)

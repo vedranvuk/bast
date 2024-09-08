@@ -45,11 +45,6 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 			fmt.Fprintf(wr, "%s%s\n", p, s)
 		}
 	}
-	// var pls = func(format string, ls [][]string) {
-	// 	for _, l := range ls {
-	// 		pl(format, l)
-	// 	}
-	// }
 	for _, pkg := range bast.Packages {
 		p("Package\t\"%s\"\n", pkg.Name)
 		for _, file := range pkg.Files {

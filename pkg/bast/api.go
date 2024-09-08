@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"go/printer"
 	"go/token"
+	"go/types"
 	"reflect"
 	"strings"
 
@@ -26,7 +27,7 @@ import (
 // It also implements all functions usable from a text/template.
 type Bast struct {
 	// config is the parser configuration.
-	config *ParseConfig
+	config *ParsePackagesConfig
 	// fset is the fileset of the parsed package.
 	fset *token.FileSet
 	// Packages is a list of packages parsed into bast using Load().
@@ -36,12 +37,14 @@ type Bast struct {
 	Packages map[string]*Package
 }
 
-// ParseConfig is parser configuration.
-type ParseConfig struct {
+// ParsePackagesConfig configures ParsePackages.
+type ParsePackagesConfig struct {
 
 	// Dir is the directory in which to run the build system's query tool
 	// that provides information about the packages.
 	// If Dir is empty, the tool is run in the current directory.
+	//
+	// Package patterns given to [ParsePackages] are relative to this directory.
 	Dir string
 
 	// BuildFlags is a list of command-line flags to be passed through to
@@ -72,57 +75,83 @@ type ParseConfig struct {
 	// setting Tests may have no effect.
 	Tests bool
 
-	Comments bool
+	// TypeChecking enables type checking for utilities like [Bast.ResolveBasicType].
+	TypeChecking bool
 
-	Docs bool
-
-	Imports bool
-
-	Vars bool
-
-	Consts bool
-
-	Types bool
-
-	Funcs bool
-
-	Methods bool
-
-	Structs bool
-
-	Interfaces bool
+	// ParsedElements are the elements to parse.
+	ParsedElements Element
 }
 
+// Element is an element that can be parsed by Bast.
+type Element int
+
+// Add adds in Elements to value of self and returns it.
+func (self Element) Add(in ...Element) (out Element) {
+	out = self
+	for _, e := range in {
+		out |= e
+	}
+	return
+}
+
+// Add removes in Elements from value of self and returns it.
+func (self Element) Remove(in ...Element) (out Element) {
+	out = self
+	for _, e := range in {
+		out ^= e
+	}
+	return
+}
+
+const (
+	Comments Element = iota + 1
+	Docs
+	Imports
+	Vars
+	Consts
+	Types
+	Funcs
+	Methods
+	Structs
+	Interfaces
+)
+
+const (
+	// NoElements specifies no parsable elements.
+	NoElements Element = 0
+	// AllElements specifies all parsable elements.
+	AllElements Element = Comments | Docs | Imports | Vars | Consts | Types | Funcs | Methods | Structs | Interfaces
+)
+
 // DefaultParseConfig returns the default configuration.
-func DefaultParseConfig() *ParseConfig {
-	return &ParseConfig{
-		Dir:        ".",
-		Comments:   true,
-		Docs:       true,
-		Imports:    true,
-		Vars:       true,
-		Consts:     true,
-		Types:      true,
-		Funcs:      true,
-		Methods:    true,
-		Structs:    true,
-		Interfaces: true,
+func DefaultParseConfig() *ParsePackagesConfig {
+	return &ParsePackagesConfig{
+		Dir:            ".",
+		TypeChecking:   true,
+		ParsedElements: AllElements,
 	}
 }
 
-// ParsePackage loads a single package and returns its Bast or an error.
+// ParsePackage loads packages specified by pattern and returns a *Bast of it
+// or an error.
 //
-// An optional config configures the build system when parsing the package.
-func ParsePackages(config *ParseConfig, patterns ...string) (bast *Bast, err error) {
+// An optional config configures what is parsed, paths, etc.
+// See [ParsePackagesConfig].
+func ParsePackages(config *ParsePackagesConfig, patterns ...string) (bast *Bast, err error) {
 
 	bast = new()
 	if bast.config = config; bast.config == nil {
 		bast.config = DefaultParseConfig()
 	}
 
+	var mode = packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName
+	if config.TypeChecking {
+		mode |= packages.NeedTypes | packages.NeedDeps | packages.NeedImports
+	}
+
 	var (
 		cfg = &packages.Config{
-			Mode:       packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName,
+			Mode:       mode,
 			Logf:       func(format string, args ...any) { fmt.Printf(format, args...) },
 			Dir:        bast.config.Dir,
 			BuildFlags: bast.config.BuildFlags,
@@ -205,10 +234,13 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
 // FieldNames returns a slice of names of fields of a struct named by
 // structName residing in some file in package named pkgName.
 func (self *Bast) FieldNames(pkgName, structName string) (out []string) {
+
 	for _, pkg := range self.Packages {
+
 		if pkg.Name != pkgName {
 			continue
 		}
+
 		for _, file := range pkg.Files {
 			for _, decl := range file.Declarations {
 				if v, ok := decl.(*Struct); ok {
@@ -219,6 +251,7 @@ func (self *Bast) FieldNames(pkgName, structName string) (out []string) {
 			}
 		}
 	}
+
 	return
 }
 
@@ -290,6 +323,15 @@ func (self *Bast) PkgInterfaces(pkgName string) (out []*Interface) {
 // PkgStructs returns all functions in self, across all packages.
 func (self *Bast) PkgStructs(pkgName string) (out []*Struct) {
 	return pkgDecl[*Struct](pkgName, self.Packages)
+}
+
+// AllPackages returns all parsed packages.
+func (self *Bast) AllPackages() (out []*Package) {
+	out = make([]*Package, 0, len(self.Packages))
+	for _, p := range self.Packages {
+		out = append(out, p)
+	}
+	return
 }
 
 // AllVars returns all variables in self, across all packages.
@@ -426,4 +468,26 @@ func (self *Bast) printExpr(in any) string {
 	var buf = bytes.Buffer{}
 	printer.Fprint(&buf, self.fset, in)
 	return buf.String()
+}
+
+// ResolveBasicType returns the basic type of a derived type under the
+// specified name. It returns an empty string if the base type was not found.
+func (self *Bast) ResolveBasicType(typeName string) string {
+
+	var o types.Object
+	for _, p := range self.Packages {
+		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
+			break
+		}
+	}
+
+	var t types.Type = o.Type()
+	for {
+		if t.Underlying() == t {
+			break
+		}
+		t = t.Underlying()
+	}
+
+	return t.String()
 }
