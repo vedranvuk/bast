@@ -6,7 +6,10 @@
 
 package bast
 
-import "golang.org/x/tools/go/packages"
+import (
+	"github.com/vedranvuk/ds/maps"
+	"golang.org/x/tools/go/packages"
+)
 
 // Declaration represents a top level declaration in a Go file.
 type Declaration interface {
@@ -14,15 +17,21 @@ type Declaration interface {
 	GetName() string
 }
 
+// DeclarationMap maps declarations by their name in parse order.
+type DeclarationMap = maps.OrderedMap[string, Declaration]
+
 // Package contians info about a Go package.
 type Package struct {
 	// Name is the package name, without path.
 	Name string
 	// Files is a list of files in the package.
-	Files map[string]*File
+	Files *FileMap
 	// pkg is the parsed package.
 	pkg *packages.Package
 }
+
+// FileMap maps files by their name in parse order.
+type FileMap = maps.OrderedMap[string, *File]
 
 // File contians info about a Go source file.
 type File struct {
@@ -33,10 +42,13 @@ type File struct {
 	// Name is the File name, without path.
 	Name string
 	// Imports is a list of file imports.
-	Imports map[string]*Import
+	Imports *ImportMap
 	// Declarations is a list of top level declarations in the file.
-	Declarations map[string]Declaration
+	Declarations *DeclarationMap
 }
+
+// ImportMap maps imports by their name in parse order.
+type ImportMap = maps.OrderedMap[string, *Import]
 
 // Import contians info about an import.
 type Import struct {
@@ -55,12 +67,15 @@ type Func struct {
 	// Name is the func name.
 	Name string
 	// TypeParams are type parameters.
-	TypeParams map[string]*Field
+	TypeParams *FieldMap
 	//  Params is a list of func arguments.
-	Params map[string]*Field
+	Params *FieldMap
 	// Results is a list of func returns.
-	Results map[string]*Field
+	Results *FieldMap
 }
+
+// MethodMap maps methods by their name in parse order.
+type MethodMap = maps.OrderedMap[string, *Method]
 
 // Method contains info about a method.
 type Method struct {
@@ -115,11 +130,11 @@ type Interface struct {
 	// Name is the interface name.
 	Name string
 	// Methods is a list of methods defined by the interface.
-	Methods map[string]*Method
+	Methods *MethodMap
 	// Interface is a list of inherited interfaces.
 	//
 	// Map is keyed by the embeded interface type name.
-	Interfaces map[string]*Field
+	Interfaces *FieldMap
 }
 
 // Struct contains info about a struct.
@@ -129,8 +144,11 @@ type Struct struct {
 	// Name is the struct name.
 	Name string
 	// Fields is a list of struct fields.
-	Fields map[string]*Field
+	Fields *FieldMap
 }
+
+// FieldMap maps fields by their name in parse order.
+type FieldMap = maps.OrderedMap[string, *Field]
 
 // Field contains info about a struct field, method receiver, or method or func
 // type params, params or results.
@@ -150,15 +168,15 @@ type Field struct {
 // NewPackage returns a new *Package.
 func NewPackage() *Package {
 	return &Package{
-		Files: make(map[string]*File),
+		Files: maps.MakeOrderedMap[string, *File](),
 	}
 }
 
 // NewFile returns a new *File.
 func NewFile() *File {
 	return &File{
-		Imports:      make(map[string]*Import),
-		Declarations: make(map[string]Declaration),
+		Imports:      maps.MakeOrderedMap[string, *Import](),
+		Declarations: maps.MakeOrderedMap[string, Declaration](),
 	}
 }
 
@@ -168,9 +186,9 @@ func NewImport() *Import { return &Import{} }
 // NewFunc returns a new *Func.
 func NewFunc() *Func {
 	return &Func{
-		TypeParams: make(map[string]*Field),
-		Params:     make(map[string]*Field),
-		Results:    make(map[string]*Field),
+		TypeParams: maps.MakeOrderedMap[string, *Field](),
+		Params:     maps.MakeOrderedMap[string, *Field](),
+		Results:    maps.MakeOrderedMap[string, *Field](),
 	}
 }
 
@@ -193,13 +211,13 @@ func NewType() *Type { return &Type{} }
 // NewInterface returns a new *Interface.
 func NewInterface() *Interface {
 	return &Interface{
-		Methods:    make(map[string]*Method),
-		Interfaces: make(map[string]*Field),
+		Methods:    maps.MakeOrderedMap[string, *Method](),
+		Interfaces: maps.MakeOrderedMap[string, *Field](),
 	}
 }
 
 // NewStruct returns a new *Struct.
-func NewStruct() *Struct { return &Struct{Fields: make(map[string]*Field)} }
+func NewStruct() *Struct { return &Struct{Fields: maps.MakeOrderedMap[string, *Field]()} }
 
 // NewField returns a new *Field.
 func NewField() *Field { return &Field{} }

@@ -173,8 +173,8 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
 	if pkg, ok = self.Packages[pkgName]; !ok {
 		return
 	}
-	for _, file := range pkg.Files {
-		for _, decl := range file.Declarations {
+	for _, file := range pkg.Files.Values() {
+		for _, decl := range file.Declarations.Values() {
 
 			if v, ok := decl.(*Method); ok {
 				if strings.TrimLeft(v.Receiver.Type, "*") == typeName {
@@ -196,10 +196,10 @@ func (self *Bast) FieldNames(pkgName, structName string) (out []string) {
 			continue
 		}
 
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
 				if v, ok := decl.(*Struct); ok {
-					for _, field := range v.Fields {
+					for _, field := range v.Fields.Values() {
 						out = append(out, field.Name)
 					}
 				}
@@ -331,8 +331,8 @@ func pkgTypeDecl[T Declaration](pkgName, typeName string, p map[string]*Package)
 		if pkg.Name != pkgName {
 			continue
 		}
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
 				switch d := decl.(type) {
 				case *Var:
 					if d.Type != typeName {
@@ -371,8 +371,8 @@ func decl[T Declaration](pkgName, declName string, p map[string]*Package) (out T
 		if pkg.Name != pkgName {
 			continue
 		}
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
 				if v, ok := decl.(T); ok {
 					if v.GetName() == declName {
 						return v
@@ -390,8 +390,8 @@ func pkgDecl[T Declaration](pkgName string, p map[string]*Package) (out []T) {
 		if pkg.Name != pkgName {
 			continue
 		}
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
 				if v, ok := decl.(T); ok {
 					out = append(out, v)
 				}
@@ -404,8 +404,8 @@ func pkgDecl[T Declaration](pkgName string, p map[string]*Package) (out []T) {
 // allDecl returns all declarations of type T from all packages p.
 func allDecl[T Declaration](p map[string]*Package) (out []T) {
 	for _, pkg := range p {
-		for _, file := range pkg.Files {
-			for _, decl := range file.Declarations {
+		for _, file := range pkg.Files.Values() {
+			for _, decl := range file.Declarations.Values() {
 				if v, ok := decl.(T); ok {
 					out = append(out, v)
 				}

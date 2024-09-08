@@ -47,13 +47,13 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 	}
 	for _, pkg := range bast.Packages {
 		p("Package\t\"%s\"\n", pkg.Name)
-		for _, file := range pkg.Files {
+		for _, file := range pkg.Files.Values() {
 			if self.PrintDoc {
 				pl("\t", file.Doc)
 			}
 			p("\tFile\t\"%s\"\n", file.Name)
 			if self.PrintConsts {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var c *Const
 					c, ok := decl.(*Const)
 					if !ok {
@@ -66,7 +66,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintVars {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var v *Var
 					v, ok := decl.(*Var)
 					if !ok {
@@ -79,7 +79,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintTypes {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var t *Type
 					t, ok := decl.(*Type)
 					if !ok {
@@ -92,7 +92,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintFuncs {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var f *Func
 					f, ok := decl.(*Func)
 					if !ok {
@@ -102,19 +102,19 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 						pl("\t\t", f.Doc)
 					}
 					p("\t\tFunc\t\"%s\"\n", f.Name)
-					for _, tparam := range f.TypeParams {
+					for _, tparam := range f.TypeParams.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", tparam.Doc)
 						}
 						p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name, tparam.Type)
 					}
-					for _, param := range f.Params {
+					for _, param := range f.Params.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", param.Doc)
 						}
 						p("\t\t\tParam\t\"%s\"\t(%s)\n", param.Name, param.Type)
 					}
-					for _, result := range f.Results {
+					for _, result := range f.Results.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", result.Doc)
 						}
@@ -123,7 +123,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintMethods {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var m *Method
 					m, ok := decl.(*Method)
 					if !ok {
@@ -139,19 +139,19 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 							p("\t\t\tReceiver\t\"%s\"\t(%s)\n", m.Receiver.Name, m.Receiver.Type)
 						}
 					}
-					for _, tparam := range m.TypeParams {
+					for _, tparam := range m.TypeParams.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", tparam.Doc)
 						}
 						p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name, tparam.Type)
 					}
-					for _, param := range m.Params {
+					for _, param := range m.Params.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", param.Doc)
 						}
 						p("\t\t\tParam\t\"%s\"\t(%s)\n", param.Name, param.Type)
 					}
-					for _, result := range m.Results {
+					for _, result := range m.Results.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", result.Doc)
 						}
@@ -160,7 +160,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintStructs {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var s *Struct
 					s, ok := decl.(*Struct)
 					if !ok {
@@ -170,7 +170,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 						pl("\t\t", s.Doc)
 					}
 					p("\t\tStruct\t\"%s\"\n", s.Name)
-					for _, field := range s.Fields {
+					for _, field := range s.Fields.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", field.Doc)
 						}
@@ -179,7 +179,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 				}
 			}
 			if self.PrintInterfaces {
-				for _, decl := range file.Declarations {
+				for _, decl := range file.Declarations.Values() {
 					var i *Interface
 					i, ok := decl.(*Interface)
 					if !ok {
@@ -189,7 +189,7 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 						pl("\t\t", i.Doc)
 					}
 					p("\t\tInterface\t\"%s\"\n", i.Name)
-					for _, method := range i.Methods {
+					for _, method := range i.Methods.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", method.Doc)
 						}
@@ -200,26 +200,26 @@ func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
 							}
 							p("\t\t\t\tReceiver\t\"%s\"\t(%s)\n", method.Receiver.Name, method.Receiver.Type)
 						}
-						for _, tparam := range method.TypeParams {
+						for _, tparam := range method.TypeParams.Values() {
 							if self.PrintDoc {
 								pl("\t\t\t\t", tparam.Doc)
 							}
 							p("\t\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name, tparam.Type)
 						}
-						for _, param := range method.Params {
+						for _, param := range method.Params.Values() {
 							if self.PrintDoc {
 								pl("\t\t\t\t", param.Doc)
 							}
 							p("\t\t\t\tParam\t\"%s\"\t(%s)\n", param.Name, param.Type)
 						}
-						for _, result := range method.Results {
+						for _, result := range method.Results.Values() {
 							if self.PrintDoc {
 								pl("\t\t\t\t", result.Doc)
 							}
 							p("\t\t\t\tResult\t\"%s\"\t(%s)\n", result.Name, result.Type)
 						}
 					}
-					for _, intf := range i.Interfaces {
+					for _, intf := range i.Interfaces.Values() {
 						if self.PrintDoc {
 							pl("\t\t\t", intf.Doc)
 						}

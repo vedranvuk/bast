@@ -30,7 +30,7 @@ func (self *Bast) parsePackage(in *packages.Package, out map[string]*Package) {
 	return
 }
 
-func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
+func (self *Bast) parseFile(name string, in *ast.File, out *FileMap) {
 
 	var val = NewFile()
 	val.Name = name
@@ -51,12 +51,12 @@ func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
 		self.parseDeclarations(d.(ast.Node), val.Declarations)
 	}
 
-	out[val.Name] = val
+	out.Put(val.Name, val)
 
 	return
 }
 
-func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
+func (self *Bast) parseDeclarations(in ast.Node, out *DeclarationMap) {
 	switch n := in.(type) {
 	case *ast.GenDecl:
 		switch n.Tok {
@@ -115,7 +115,7 @@ func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 	return
 }
 
-func (self *Bast) parseImportSpec(in *ast.ImportSpec, out map[string]*Import) {
+func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportMap) {
 	var val = NewImport()
 	if in.Name != nil {
 		val.Name = self.printExpr(in.Name)
@@ -123,14 +123,14 @@ func (self *Bast) parseImportSpec(in *ast.ImportSpec, out map[string]*Import) {
 	val.Path = self.printExpr(in.Path)
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	if in.Name != nil {
-		out[in.Name.Name] = val
+		out.Put(in.Name.Name, val)
 	} else {
-		out[path.Base(val.Path)] = val
+		out.Put(path.Base(val.Path), val)
 	}
 	return
 }
 
-func (self *Bast) parseConsts(in *ast.GenDecl, out map[string]Declaration) {
+func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
 	var lastType string
 	for _, spec := range in.Specs {
 		switch s := spec.(type) {
@@ -148,7 +148,7 @@ func (self *Bast) parseConsts(in *ast.GenDecl, out map[string]Declaration) {
 				if s.Values != nil {
 					val.Value = self.printExpr(s.Values[i])
 				}
-				out[val.Name] = val
+				out.Put(val.Name, val)
 			}
 		default:
 			panic("parseConsts: unsupported spec")
@@ -156,7 +156,7 @@ func (self *Bast) parseConsts(in *ast.GenDecl, out map[string]Declaration) {
 	}
 }
 
-func (self *Bast) parseVar(in *ast.ValueSpec, out map[string]Declaration) {
+func (self *Bast) parseVar(in *ast.ValueSpec, out *DeclarationMap) {
 	for i := 0; i < len(in.Names); i++ {
 		var val = NewVar()
 		val.Name = self.printExpr(in.Names[i])
@@ -171,21 +171,21 @@ func (self *Bast) parseVar(in *ast.ValueSpec, out map[string]Declaration) {
 				val.Value = self.printExpr(in.Values[i])
 			}
 		}
-		out[val.Name] = val
+		out.Put(val.Name, val)
 	}
 }
 
-func (self *Bast) parseFunc(in *ast.FuncDecl, out map[string]Declaration) {
+func (self *Bast) parseFunc(in *ast.FuncDecl, out *DeclarationMap) {
 	var val = NewFunc()
 	val.Name = self.printExpr(in.Name)
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
 	self.parseFieldList(in.Type.Params, val.Params)
 	self.parseFieldList(in.Type.Results, val.Results)
-	out[val.Name] = val
+	out.Put(val.Name, val)
 }
 
-func (self *Bast) parseMethod(in *ast.FuncDecl, out map[string]Declaration) {
+func (self *Bast) parseMethod(in *ast.FuncDecl, out *DeclarationMap) {
 	var val = NewMethod()
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
@@ -201,11 +201,11 @@ func (self *Bast) parseMethod(in *ast.FuncDecl, out map[string]Declaration) {
 	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
 	self.parseFieldList(in.Type.Params, val.Params)
 	self.parseFieldList(in.Type.Results, val.Results)
-	out[val.Name] = val
+	out.Put(val.Name, val)
 	return
 }
 
-func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
+func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var val = NewFunc()
 	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
@@ -213,29 +213,30 @@ func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out map[string
 	self.parseFieldList(ft.TypeParams, val.TypeParams)
 	self.parseFieldList(ft.Params, val.Params)
 	self.parseFieldList(ft.Results, val.Results)
-	out[val.Name] = val
+	out.Put(val.Name, val)
 	return
 }
 
-func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
+func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var val = NewType()
 	self.parseCommentGroup(g.Doc, &val.Doc)
 	val.Name = self.printExpr(in.Name)
 	val.Type = self.printExpr(in.Type)
 	val.IsAlias = in.Assign.IsValid()
-	out[val.Name] = val
+	out.Put(val.Name, val)
 	return
 }
 
-func (self *Bast) parseFieldList(in *ast.FieldList, out map[string]*Field) {
+func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
 	if in == nil {
 		return
 	}
 	for idx, field := range in.List {
 		if field.Names == nil {
-			out[fmt.Sprintf("%s [%d]", self.printExpr(field.Type), idx)] = &Field{
+			var key = fmt.Sprintf("%s [%d]", self.printExpr(field.Type), idx)
+			out.Put(key, &Field{
 				Type: self.printExpr(field.Type),
-			}
+			})
 			continue
 		}
 		for _, name := range field.Names {
@@ -244,12 +245,12 @@ func (self *Bast) parseFieldList(in *ast.FieldList, out map[string]*Field) {
 			val.Name = self.printExpr(name)
 			val.Type = self.printExpr(field.Type)
 			val.Tag = self.printExpr(field.Tag)
-			out[val.Name] = val
+			out.Put(val.Name, val)
 		}
 	}
 }
 
-func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
+func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var it, ok = in.Type.(*ast.InterfaceType)
 	if !ok {
@@ -267,7 +268,7 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out map[strin
 			intf.Type = self.printExpr(method.Type)
 			intf.Name = intf.Type
 			intf.Unnamed = true
-			val.Interfaces[intf.Type] = intf
+			val.Interfaces.Put(intf.Type, intf)
 		} else {
 			var m = NewMethod()
 			self.parseCommentGroup(method.Doc, &m.Doc)
@@ -276,16 +277,16 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out map[strin
 			self.parseFieldList(ft.TypeParams, m.TypeParams)
 			self.parseFieldList(ft.Params, m.Params)
 			self.parseFieldList(ft.Results, m.Results)
-			val.Methods[m.Name] = m
+			val.Methods.Put(m.Name, m)
 		}
 	}
 
-	out[val.Name] = val
+	out.Put(val.Name, val)
 
 	return
 }
 
-func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out map[string]Declaration) {
+func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var st, ok = in.Type.(*ast.StructType)
 	if !ok {
 		return
@@ -296,11 +297,13 @@ func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out map[string]D
 	for _, field := range st.Fields.List {
 		self.parseStructField(field, val.Fields)
 	}
-	out[val.Name] = val
+
+	out.Put(val.Name, val)
+
 	return
 }
 
-func (self *Bast) parseStructField(in *ast.Field, out map[string]*Field) {
+func (self *Bast) parseStructField(in *ast.Field, out *FieldMap) {
 
 	var val = NewField()
 
@@ -309,7 +312,7 @@ func (self *Bast) parseStructField(in *ast.Field, out map[string]*Field) {
 		val.Unnamed = true
 		val.Type = self.printExpr(in.Type)
 		val.Tag = self.printExpr(in.Tag)
-		out[val.Name] = val
+		out.Put(val.Name, val)
 		return
 	}
 
@@ -318,7 +321,7 @@ func (self *Bast) parseStructField(in *ast.Field, out map[string]*Field) {
 		val.Name = self.printExpr(name)
 		val.Type = self.printExpr(in.Type)
 		val.Tag = self.printExpr(in.Tag)
-		out[val.Name] = val
+		out.Put(val.Name, val)
 	}
 
 	return
