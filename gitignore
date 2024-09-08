@@ -18,5 +18,3 @@
 go.work
 
 # Project specific
-./cmd/bast/bast
-./cmd/bast/bast.exe
