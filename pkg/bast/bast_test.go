@@ -8,10 +8,6 @@ import (
 
 func TestBast(t *testing.T) {
 	var cfg = DefaultParseConfig()
-	cfg.ParsedElements = NoElements.Add(Structs)
-	// cfg.ParsedElements = AllElements.Remove(Types, Funcs)
-
-	
 	cfg.Dir = "./../../_testproject"
 	var bast, err = ParsePackages(cfg, "./...")
 	if err != nil {

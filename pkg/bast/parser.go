@@ -35,22 +35,16 @@ func (self *Bast) parseFile(name string, in *ast.File, out map[string]*File) {
 	var val = NewFile()
 	val.Name = name
 
-	if self.config.ParsedElements|Comments != 0 {
-		for _, comment := range in.Comments {
-			var cg []string
-			self.parseCommentGroup(comment, &cg)
-			val.Comments = append(val.Comments, cg)
-		}
+	for _, comment := range in.Comments {
+		var cg []string
+		self.parseCommentGroup(comment, &cg)
+		val.Comments = append(val.Comments, cg)
 	}
 
-	if self.config.ParsedElements|Docs != 0 {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-	}
+	self.parseCommentGroup(in.Doc, &val.Doc)
 
-	if self.config.ParsedElements|Imports != 0 {
-		for _, imprt := range in.Imports {
-			self.parseImportSpec(imprt, val.Imports)
-		}
+	for _, imprt := range in.Imports {
+		self.parseImportSpec(imprt, val.Imports)
 	}
 
 	for _, d := range in.Decls {
@@ -67,17 +61,11 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 	case *ast.GenDecl:
 		switch n.Tok {
 		case token.CONST:
-			if self.config.ParsedElements|Consts == 0 {
-				return
-			}
 			self.parseConsts(n, out)
 		case token.VAR:
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
 				case *ast.ValueSpec:
-					if self.config.ParsedElements|Vars == 0 {
-						return
-					}
 					self.parseVar(s, out)
 				}
 			}
@@ -90,39 +78,18 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 					}
 					switch s.Type.(type) {
 					case *ast.InterfaceType:
-						if self.config.ParsedElements|Interfaces == 0 {
-							return
-						}
 						self.parseInterface(n, s, out)
 					case *ast.StructType:
-						if self.config.ParsedElements|Structs == 0 {
-							return
-						}
 						self.parseStruct(n, s, out)
 					case *ast.ArrayType:
-						if self.config.ParsedElements|Types == 0 {
-							return
-						}
 						self.parseType(n, s, out)
 					case *ast.FuncType:
-						if self.config.ParsedElements|Types == 0 {
-							return
-						}
 						self.parseFuncType(n, s, out)
 					case *ast.Ident:
-						if self.config.ParsedElements|Types == 0 {
-							return
-						}
 						self.parseType(n, s, out)
 					case *ast.ChanType:
-						if self.config.ParsedElements|Types == 0 {
-							return
-						}
 						self.parseType(n, s, out)
 					case *ast.MapType:
-						if self.config.ParsedElements|Types == 0 {
-							return
-						}
 						self.parseType(n, s, out)
 					}
 				}
@@ -130,14 +97,8 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
-			if self.config.ParsedElements|Methods == 0 {
-				return
-			}
 			self.parseMethod(n, out)
 		} else {
-			if self.config.ParsedElements|Funcs == 0 {
-				return
-			}
 			self.parseFunc(n, out)
 		}
 	}
@@ -145,9 +106,6 @@ func (self *Bast) parseDeclarations(in ast.Node, out map[string]Declaration) {
 }
 
 func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
-	if self.config.ParsedElements|Docs != 0 {
-		return
-	}
 	if in == nil {
 		return
 	}

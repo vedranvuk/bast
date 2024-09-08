@@ -77,58 +77,13 @@ type ParsePackagesConfig struct {
 
 	// TypeChecking enables type checking for utilities like [Bast.ResolveBasicType].
 	TypeChecking bool
-
-	// ParsedElements are the elements to parse.
-	ParsedElements Element
 }
-
-// Element is an element that can be parsed by Bast.
-type Element int
-
-// Add adds in Elements to value of self and returns it.
-func (self Element) Add(in ...Element) (out Element) {
-	out = self
-	for _, e := range in {
-		out |= e
-	}
-	return
-}
-
-// Add removes in Elements from value of self and returns it.
-func (self Element) Remove(in ...Element) (out Element) {
-	out = self
-	for _, e := range in {
-		out ^= e
-	}
-	return
-}
-
-const (
-	Comments Element = iota + 1
-	Docs
-	Imports
-	Vars
-	Consts
-	Types
-	Funcs
-	Methods
-	Structs
-	Interfaces
-)
-
-const (
-	// NoElements specifies no parsable elements.
-	NoElements Element = 0
-	// AllElements specifies all parsable elements.
-	AllElements Element = Comments | Docs | Imports | Vars | Consts | Types | Funcs | Methods | Structs | Interfaces
-)
 
 // DefaultParseConfig returns the default configuration.
 func DefaultParseConfig() *ParsePackagesConfig {
 	return &ParsePackagesConfig{
 		Dir:            ".",
 		TypeChecking:   true,
-		ParsedElements: AllElements,
 	}
 }
 
