@@ -19,4 +19,8 @@ func TestBast(t *testing.T) {
 		"Underlying type of CustomType is: %s\n",
 		bast.ResolveBasicType("CustomType"),
 	)
+	fmt.Printf(
+		"Underlying type of string is: %s\n",
+		bast.ResolveBasicType("string"),
+	)
 }

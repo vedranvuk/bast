@@ -151,8 +151,12 @@ func (self *Bast) PackageNames() (out []string) {
 	return
 }
 
-// ResolveBasicType returns the basic type of a derived type under the
-// specified name. It returns an empty string if the base type was not found.
+// ResolveBasicType returns the basic type name of a derived type under the
+// specified name.
+//
+// It returns an empty string if the base type was not found.
+//
+// if typeName is already a name of a basic type it is returned as is.
 func (self *Bast) ResolveBasicType(typeName string) string {
 
 	var o types.Object
@@ -162,8 +166,23 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 		}
 	}
 
+	if o == nil {
+		switch tn := typeName; tn {
+		case "bool", "byte",
+			"int", "int8", "int16", "int32", "int64",
+			"uint", "uint8", "uint16", "uint32", "uint64",
+			"complex64", "complex128", "string":
+			return tn
+		default:
+			return ""
+		}
+	}
+
 	var t types.Type = o.Type()
 	for {
+		if t.Underlying() == nil {
+			return t.String()
+		}
 		if t.Underlying() == t {
 			break
 		}
