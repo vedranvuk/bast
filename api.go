@@ -82,8 +82,8 @@ type ParsePackagesConfig struct {
 // DefaultParseConfig returns the default configuration.
 func DefaultParseConfig() *ParsePackagesConfig {
 	return &ParsePackagesConfig{
-		Dir:            ".",
-		TypeChecking:   true,
+		Dir:          ".",
+		TypeChecking: true,
 	}
 }
 
@@ -172,7 +172,6 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 
 	return t.String()
 }
-
 
 // VarsOfType returns all top level variable declarations from a package named
 // pkgName whose type name equals typeName.
