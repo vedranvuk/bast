@@ -12,111 +12,10 @@ package bast
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
-	"go/printer"
 	"go/types"
 	"reflect"
 	"strings"
-
-	"golang.org/x/tools/go/packages"
 )
-
-// Config configures [Load].
-type Config struct {
-
-	// Dir is the directory in which to run the build system's query tool
-	// that provides information about the packages.
-	// If Dir is empty, the tool is run in the current directory.
-	//
-	// Package patterns given to [ParsePackages] are relative to this directory.
-	Dir string
-
-	// BuildFlags is a list of command-line flags to be passed through to
-	// the build system's query tool.
-	BuildFlags []string
-
-	// Env is the environment to use when invoking the build system's query tool.
-	// If Env is nil, the current environment is used.
-	// As in os/exec's Cmd, only the last value in the slice for
-	// each environment key is used. To specify the setting of only
-	// a few variables, append to the current environment, as in:
-	//
-	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
-	//
-	Env []string
-
-	// If Tests is set, the loader includes not just the packages
-	// matching a particular pattern but also any related test packages,
-	// including test-only variants of the package and the test executable.
-	//
-	// For example, when using the go command, loading "fmt" with Tests=true
-	// returns four packages, with IDs "fmt" (the standard package),
-	// "fmt [fmt.test]" (the package as compiled for the test),
-	// "fmt_test" (the test functions from source files in package fmt_test),
-	// and "fmt.test" (the test binary).
-	//
-	// In build systems with explicit names for tests,
-	// setting Tests may have no effect.
-	Tests bool
-
-	// TypeChecking enables type checking for utilities like [Bast.ResolveBasicType].
-	TypeChecking bool
-}
-
-// DefaultConfig returns the default configuration.
-func DefaultConfig() *Config {
-	return &Config{
-		Dir:          ".",
-		TypeChecking: true,
-	}
-}
-
-// Load loads packages specified by pattern and returns a *Bast of it
-// or an error.
-//
-// An optional config configures what is parsed, paths, etc.
-// See [Config].
-func Load(config *Config, patterns ...string) (bast *Bast, err error) {
-
-	bast = new()
-	if bast.config = config; bast.config == nil {
-		bast.config = DefaultConfig()
-	}
-
-	var mode = packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName
-	if config.TypeChecking {
-		mode |= packages.NeedTypes | packages.NeedDeps | packages.NeedImports
-	}
-
-	var (
-		cfg = &packages.Config{
-			Mode:       mode,
-			Dir:        bast.config.Dir,
-			BuildFlags: bast.config.BuildFlags,
-			Env:        bast.config.Env,
-			Tests:      bast.config.Tests,
-		}
-		pkgs []*packages.Package
-	)
-
-	if pkgs, err = packages.Load(cfg, patterns...); err != nil {
-		return nil, fmt.Errorf("load packages: %w", err)
-	}
-
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			var errs []error
-			for _, e := range pkg.Errors {
-				errs = append(errs, e)
-			}
-			return nil, fmt.Errorf("parse packages: %w", errors.Join(errs...))
-		}
-		bast.parsePackage(pkg, bast.Packages)
-	}
-
-	return
-}
 
 // PackageNames returns names of all parsed packages.
 func (self *Bast) PackageNames() (out []string) {
@@ -490,6 +389,6 @@ func (self *Bast) printExpr(in any) string {
 		return ""
 	}
 	var buf = bytes.Buffer{}
-	printer.Fprint(&buf, self.fset, in)
+	self.p.Fprint(&buf, self.fset, in)
 	return buf.String()
 }

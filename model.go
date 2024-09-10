@@ -7,6 +7,7 @@
 package bast
 
 import (
+	"go/printer"
 	"go/token"
 
 	"github.com/vedranvuk/ds/maps"
@@ -20,6 +21,8 @@ type Bast struct {
 	config *Config
 	// fset is the fileset of the parsed package.
 	fset *token.FileSet
+	// p is ast/printer for printing nodes.
+	p *printer.Config
 	// Packages is a list of packages parsed into bast using Load().
 	//
 	// Files outside of a package given to Load will be placed in a package
@@ -31,6 +34,11 @@ type Bast struct {
 func new() *Bast {
 	return &Bast{
 		fset:     token.NewFileSet(),
+		p: &printer.Config{
+			Mode: printer.RawFormat,
+			Tabwidth: 4,
+			Indent: 1,
+		},
 		Packages: make(map[string]*Package),
 	}
 }
