@@ -7,9 +7,9 @@ import (
 )
 
 func TestBast(t *testing.T) {
-	var cfg = DefaultParseConfig()
+	var cfg = DefaultConfig()
 	cfg.Dir = "_testproject"
-	var bast, err = ParsePackages(cfg, "./...")
+	var bast, err = Load(cfg, "./...")
 	if err != nil {
 		t.Fatal(err)
 	}

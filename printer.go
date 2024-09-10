@@ -21,11 +21,11 @@ func Print(w io.Writer, bast *Bast) {
 }
 
 // DefaultPrintConfig returns the default print configuration.
-func DefaultPrintConfig() *PrintConfig {
-	return &PrintConfig{true, true, true, true, true, true, true, true, true}
+func DefaultPrintConfig() *Printer {
+	return &Printer{true, true, true, true, true, true, true, true, true}
 }
 
-type PrintConfig struct {
+type Printer struct {
 	PrintDoc        bool
 	PrintComments   bool
 	PrintConsts     bool
@@ -37,7 +37,7 @@ type PrintConfig struct {
 	PrintInterfaces bool
 }
 
-func (self *PrintConfig) Print(w io.Writer, bast *Bast) {
+func (self *Printer) Print(w io.Writer, bast *Bast) {
 	var wr = tabwriter.NewWriter(w, 2, 2, 2, 32, 0)
 	var p = func(format string, args ...any) { fmt.Fprintf(wr, format, args...) }
 	var pl = func(p string, l []string) {

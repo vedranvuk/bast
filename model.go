@@ -7,9 +7,33 @@
 package bast
 
 import (
+	"go/token"
+
 	"github.com/vedranvuk/ds/maps"
 	"golang.org/x/tools/go/packages"
 )
+
+// Bast is a top level struct that contains parsed go packages.
+// It also implements all functions usable from a text/template.
+type Bast struct {
+	// config is the parser configuration.
+	config *Config
+	// fset is the fileset of the parsed package.
+	fset *token.FileSet
+	// Packages is a list of packages parsed into bast using Load().
+	//
+	// Files outside of a package given to Load will be placed in a package
+	// with an empty name.
+	Packages map[string]*Package
+}
+
+// new returns a new, empty *Bast.
+func new() *Bast {
+	return &Bast{
+		fset:     token.NewFileSet(),
+		Packages: make(map[string]*Package),
+	}
+}
 
 // Declaration represents a top level declaration in a Go file.
 type Declaration interface {
@@ -20,7 +44,7 @@ type Declaration interface {
 // DeclarationMap maps declarations by their name in parse order.
 type DeclarationMap = maps.OrderedMap[string, Declaration]
 
-// Package contians info about a Go package.
+// Package contains info about a Go package.
 type Package struct {
 	// Name is the package name, without path.
 	Name string
