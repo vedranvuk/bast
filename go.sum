@@ -1,3 +1,5 @@
+github.com/vedranvuk/ds v0.0.0-20240910152216-485ca74d7e9a h1:9Z7J1+Ogw2tgx3cxPA49y8LrAdzXRKmlTZvnxJFETFY=
+github.com/vedranvuk/ds v0.0.0-20240910152216-485ca74d7e9a/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
 golang.org/x/mod v0.21.0 h1:vvrHzRwRfVKSiLrG+d4FMl/Qi4ukBCE6kZlTUkDYRT0=
 golang.org/x/mod v0.21.0/go.mod h1:6SkKJ3Xj0I0BrPOZoBy3bdMptDDU9oJrpohJ3eWZ1fY=
 golang.org/x/sync v0.8.0 h1:3NFvSEYkUoMifnESzZl15y791HH1qU2xm6eCJU5ZPXQ=
