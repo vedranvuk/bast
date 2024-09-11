@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"path"
 	"path/filepath"
 
 	"golang.org/x/tools/go/packages"
@@ -111,7 +110,7 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 	return
 }
 
-func (self *Bast) parsePackage(in *packages.Package, out map[string]*Package) {
+func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 
 	var val = NewPackage()
 	val.Name = in.Name
@@ -121,8 +120,9 @@ func (self *Bast) parsePackage(in *packages.Package, out map[string]*Package) {
 	}
 
 	val.pkg = in
+	val.Path = in.PkgPath
 
-	out[val.Name] = val
+	out.Put(val.Name, val)
 
 	return
 }
@@ -188,6 +188,10 @@ func (self *Bast) parseDeclarations(in ast.Node, out *DeclarationMap) {
 						self.parseType(n, s, out)
 					case *ast.MapType:
 						self.parseType(n, s, out)
+					case *ast.SelectorExpr:
+						self.parseType(n, s, out)
+					default:
+						fmt.Println(self.printExpr(s))
 					}
 				}
 			}
@@ -212,18 +216,14 @@ func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 	return
 }
 
-func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportMap) {
+func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 	var val = NewImport()
 	if in.Name != nil {
 		val.Name = self.printExpr(in.Name)
 	}
 	val.Path = self.printExpr(in.Path)
 	self.parseCommentGroup(in.Doc, &val.Doc)
-	if in.Name != nil {
-		out.Put(in.Name.Name, val)
-	} else {
-		out.Put(path.Base(val.Path), val)
-	}
+	out.Put(val.Path, val)
 	return
 }
 

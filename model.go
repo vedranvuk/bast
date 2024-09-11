@@ -9,6 +9,8 @@ package bast
 import (
 	"go/printer"
 	"go/token"
+	"path"
+	"strings"
 
 	"github.com/vedranvuk/ds/maps"
 	"golang.org/x/tools/go/packages"
@@ -27,19 +29,15 @@ type Bast struct {
 	//
 	// Files outside of a package given to Load will be placed in a package
 	// with an empty name.
-	Packages map[string]*Package
+	Packages *PackageMap
 }
 
 // new returns a new, empty *Bast.
 func new() *Bast {
 	return &Bast{
 		fset:     token.NewFileSet(),
-		p: &printer.Config{
-			Mode: printer.RawFormat,
-			Tabwidth: 4,
-			Indent: 1,
-		},
-		Packages: make(map[string]*Package),
+		p:        &printer.Config{Tabwidth: 8},
+		Packages: maps.MakeOrderedMap[string, *Package](),
 	}
 }
 
@@ -54,13 +52,18 @@ type DeclarationMap = maps.OrderedMap[string, Declaration]
 
 // Package contains info about a Go package.
 type Package struct {
-	// Name is the package name, without path.
+	// Name is the package name, without path, as it appears in source code..
 	Name string
+	// Path is the package path as it appears in go import path.
+	Path string
 	// Files is a list of files in the package.
 	Files *FileMap
 	// pkg is the parsed package.
 	pkg *packages.Package
 }
+
+// PackageMap maps package paths to packages.
+type PackageMap = maps.OrderedMap[string, *Package]
 
 // FileMap maps files by their name in parse order.
 type FileMap = maps.OrderedMap[string, *File]
@@ -74,16 +77,31 @@ type File struct {
 	// Name is the File name, without path.
 	Name string
 	// Imports is a list of file imports.
-	Imports *ImportMap
+	Imports *ImportSpecMap
 	// Declarations is a list of top level declarations in the file.
 	Declarations *DeclarationMap
 }
 
-// ImportMap maps imports by their name in parse order.
-type ImportMap = maps.OrderedMap[string, *Import]
 
-// Import contians info about an import.
-type Import struct {
+// ImportSpecForTypeSelector returns an ImportSpec for package that contains
+// the type specified by typeName. Returns nil if not found.
+//
+// Requires [Config.TypeChecking].
+func (self File) ImportSpecForTypeSelector(typeName string) *ImportSpec {
+	var pkg, _, ok = strings.Cut(typeName, ".")
+	if !ok {
+		return nil
+	}
+	for _, v := range self.Imports.Values() {
+		if path.Base(v.Path) == pkg {
+			return v
+		}
+	}
+	return nil
+}
+
+// ImportSpec contians info about an import.
+type ImportSpec struct {
 	// Doc is the import doc.
 	Doc []string
 	// Name is the import name, possibly empty, "." or some custom name.
@@ -91,6 +109,9 @@ type Import struct {
 	// Path is the import path.
 	Path string
 }
+
+// ImportSpecMap maps imports by their name in parse order.
+type ImportSpecMap = maps.OrderedMap[string, *ImportSpec]
 
 // Func contains info about a function.
 type Func struct {
@@ -150,6 +171,7 @@ type Type struct {
 	// Name is the struct name.
 	Name string
 	// Type is Type's underlying type.
+	// The name can be a selector qualifying the package it originates in.
 	Type string
 	// IsAlias is true if type is an alias of the type it derives from.
 	IsAlias bool
@@ -207,13 +229,13 @@ func NewPackage() *Package {
 // NewFile returns a new *File.
 func NewFile() *File {
 	return &File{
-		Imports:      maps.MakeOrderedMap[string, *Import](),
+		Imports:      maps.MakeOrderedMap[string, *ImportSpec](),
 		Declarations: maps.MakeOrderedMap[string, Declaration](),
 	}
 }
 
 // NewImport returns a new *Import.
-func NewImport() *Import { return &Import{} }
+func NewImport() *ImportSpec { return &ImportSpec{} }
 
 // NewFunc returns a new *Func.
 func NewFunc() *Func {
@@ -256,7 +278,7 @@ func NewField() *Field { return &Field{} }
 
 func (self *Package) GetName() string   { return self.Name }
 func (self *File) GetName() string      { return self.Name }
-func (self *Import) GetName() string    { return self.Name }
+func (self *ImportSpec) GetName() string    { return self.Name }
 func (self *Func) GetName() string      { return self.Name }
 func (self *Method) GetName() string    { return self.Name }
 func (self *Var) GetName() string       { return self.Name }

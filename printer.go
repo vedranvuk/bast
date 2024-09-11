@@ -17,11 +17,11 @@ import (
 
 // Print prints bas to writer w.
 func Print(w io.Writer, bast *Bast) {
-	DefaultPrintConfig().Print(w, bast)
+	DefaultPrinter().Print(w, bast)
 }
 
-// DefaultPrintConfig returns the default print configuration.
-func DefaultPrintConfig() *Printer {
+// DefaultPrinter returns the default print configuration.
+func DefaultPrinter() *Printer {
 	return &Printer{true, true, true, true, true, true, true, true, true}
 }
 
@@ -45,13 +45,21 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 			fmt.Fprintf(wr, "%s%s\n", p, s)
 		}
 	}
-	for _, pkg := range bast.Packages {
-		p("Package\t\"%s\"\n", pkg.Name)
+	for _, pkg := range bast.Packages.Values() {
+		p("Package\t\"%s\"\t(%s)\n", pkg.Name, pkg.Path)
 		for _, file := range pkg.Files.Values() {
 			if self.PrintDoc {
 				pl("\t", file.Doc)
 			}
 			p("\tFile\t\"%s\"\n", file.Name)
+			if file.Imports.Len() > 0{
+				p("\t\tImports\"\n")
+				for _, key := range file.Imports.Keys() {
+					var i, _ = file.Imports.Get(key)
+					p("\t\t\t%s\t(%s)\n", i.Name, i.Path)
+				}
+			}
+
 			if self.PrintConsts {
 				for _, decl := range file.Declarations.Values() {
 					var c *Const

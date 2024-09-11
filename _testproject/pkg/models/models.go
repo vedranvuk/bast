@@ -1,7 +1,9 @@
 // Package comments go here.
 
 // Package test description goes here.
-package test
+package models
+
+import "github.com/vedranvuk/bast/_testproject/pkg/types"
 
 // TestFunc returns no values.
 func TestFunc1() {}
@@ -72,3 +74,6 @@ type Interface3 interface {
 	// IntfMethod2 is a method in Interface3.
 	IntfMethod2(in int) (out bool)
 }
+
+// PackageType is a type whose parent is in another package.
+type PackageType types.ID

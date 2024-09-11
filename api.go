@@ -19,8 +19,8 @@ import (
 
 // PackageNames returns names of all parsed packages.
 func (self *Bast) PackageNames() (out []string) {
-	out = make([]string, 0, len(self.Packages))
-	for _, v := range self.Packages {
+	out = make([]string, 0, self.Packages.Len())
+	for _, v := range self.Packages.Values() {
 		out = append(out, v.Name)
 	}
 	return
@@ -36,7 +36,7 @@ func (self *Bast) PackageNames() (out []string) {
 func (self *Bast) ResolveBasicType(typeName string) string {
 
 	var o types.Object
-	for _, p := range self.Packages {
+	for _, p := range self.Packages.Values() {
 		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
 			break
 		}
@@ -53,7 +53,6 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 			return ""
 		}
 	}
-
 	var t types.Type = o.Type()
 	for {
 		if t.Underlying() == nil {
@@ -66,6 +65,36 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 	}
 
 	return t.String()
+}
+
+// TypeImports returns imports needed for declaration.
+func (self *Bast) TypeImports(typeName string) (imports []string) {
+
+	var o types.Object
+	for _, p := range self.Packages.Values() {
+		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
+			break
+		}
+	}
+
+	if o == nil {
+		return nil
+	}
+
+	var t types.Type = o.Type()
+	for {
+		var p = o.Pkg()
+		imports = append(imports, p.Path())
+		if t.Underlying() == nil {
+			return
+		}
+		if t.Underlying() == t {
+			break
+		}
+		t = t.Underlying()
+	}
+
+	return
 }
 
 // VarsOfType returns all top level variable declarations from a package named
@@ -87,7 +116,7 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
 		pkg *Package
 		ok  bool
 	)
-	if pkg, ok = self.Packages[pkgName]; !ok {
+	if pkg, ok = self.Packages.Get(pkgName); !ok {
 		return
 	}
 	for _, file := range pkg.Files.Values() {
@@ -107,7 +136,7 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
 // structName residing in some file in package named pkgName.
 func (self *Bast) FieldNames(pkgName, structName string) (out []string) {
 
-	for _, pkg := range self.Packages {
+	for _, pkg := range self.Packages.Values() {
 
 		if pkg.Name != pkgName {
 			continue
@@ -234,8 +263,8 @@ func (self *Bast) PkgStructs(pkgName string) (out []*Struct) {
 
 // AllPackages returns all parsed packages.
 func (self *Bast) AllPackages() (out []*Package) {
-	out = make([]*Package, 0, len(self.Packages))
-	for _, p := range self.Packages {
+	out = make([]*Package, 0, self.Packages.Len())
+	for _, p := range self.Packages.Values() {
 		out = append(out, p)
 	}
 	return
@@ -278,8 +307,8 @@ func (self *Bast) AllStructs() (out []*Struct) {
 
 // pkgTypeDecl returns all declarations of model T and type typeName from a
 // package in p named pkgName.
-func pkgTypeDecl[T Declaration](pkgName, typeName string, p map[string]*Package) (out []T) {
-	for _, pkg := range p {
+func pkgTypeDecl[T Declaration](pkgName, typeName string, p *PackageMap) (out []T) {
+	for _, pkg := range p.Values() {
 		if pkg.Name != pkgName {
 			continue
 		}
@@ -318,18 +347,15 @@ func pkgTypeDecl[T Declaration](pkgName, typeName string, p map[string]*Package)
 
 // pkgDecl returns a declaration named declName of model T from a package
 // in p named pkgName.
-func pkgDecl[T Declaration](pkgName, declName string, p map[string]*Package) (out T) {
-	for _, pkg := range p {
+func pkgDecl[T Declaration](pkgName, declName string, p *PackageMap) (out T) {
+	for _, pkg := range p.Values() {
 		if pkg.Name != pkgName {
 			continue
 		}
 		for _, file := range pkg.Files.Values() {
-			for _, decl := range file.Declarations.Values() {
-				if v, ok := decl.(T); ok {
-					if v.GetName() == declName {
-						return v
-					}
-				}
+			if decl, ok := file.Declarations.Get(declName); ok {
+				out, _ = decl.(T)
+				return
 			}
 		}
 	}
@@ -337,24 +363,21 @@ func pkgDecl[T Declaration](pkgName, declName string, p map[string]*Package) (ou
 }
 
 // anyDecl returns a declaration named declName of model T from any package.
-func anyDecl[T Declaration](declName string, p map[string]*Package) (out T) {
-	for _, pkg := range p {
+func anyDecl[T Declaration](declName string, p *PackageMap) (out T) {
+	for _, pkg := range p.Values() {
 		for _, file := range pkg.Files.Values() {
-			for _, decl := range file.Declarations.Values() {
-				if v, ok := decl.(T); ok {
-					if v.GetName() == declName {
-						return v
-					}
-				}
+			if decl, ok := file.Declarations.Get(declName); ok {
+				out, _ = decl.(T)
 			}
+			return
 		}
 	}
 	return
 }
 
 // pkgDecls returns all declarations of model T from a package in p named pkgName.
-func pkgDecls[T Declaration](pkgName string, p map[string]*Package) (out []T) {
-	for _, pkg := range p {
+func pkgDecls[T Declaration](pkgName string, p *PackageMap) (out []T) {
+	for _, pkg := range p.Values() {
 		if pkg.Name != pkgName {
 			continue
 		}
@@ -370,8 +393,8 @@ func pkgDecls[T Declaration](pkgName string, p map[string]*Package) (out []T) {
 }
 
 // allDecls returns all declarations of type T from all packages p.
-func allDecls[T Declaration](p map[string]*Package) (out []T) {
-	for _, pkg := range p {
+func allDecls[T Declaration](p *PackageMap) (out []T) {
+	for _, pkg := range p.Values() {
 		for _, file := range pkg.Files.Values() {
 			for _, decl := range file.Declarations.Values() {
 				if v, ok := decl.(T); ok {
@@ -384,7 +407,7 @@ func allDecls[T Declaration](p map[string]*Package) (out []T) {
 }
 
 // printExpr prints an ast.Node.
-func (self *Bast) printExpr(in any) string {
+func (self *Bast) printExpr(in any) (s string) {
 	if in == nil || reflect.ValueOf(in).IsNil() {
 		return ""
 	}
