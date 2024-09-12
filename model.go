@@ -17,7 +17,6 @@ import (
 )
 
 // Bast is a top level struct that contains parsed go packages.
-// It also implements all functions usable from a text/template.
 type Bast struct {
 	// config is the parser configuration.
 	config *Config
@@ -62,11 +61,8 @@ type Package struct {
 	pkg *packages.Package
 }
 
-// PackageMap maps package paths to packages.
+// PackageMap maps packages by their import path.
 type PackageMap = maps.OrderedMap[string, *Package]
-
-// FileMap maps files by their name in parse order.
-type FileMap = maps.OrderedMap[string, *File]
 
 // File contians info about a Go source file.
 type File struct {
@@ -82,6 +78,8 @@ type File struct {
 	Declarations *DeclarationMap
 }
 
+// FileMap maps files by their name in parse order.
+type FileMap = maps.OrderedMap[string, *File]
 
 // ImportSpecForTypeSelector returns an ImportSpec for package that contains
 // the type specified by typeName. Returns nil if not found.
@@ -127,9 +125,6 @@ type Func struct {
 	Results *FieldMap
 }
 
-// MethodMap maps methods by their name in parse order.
-type MethodMap = maps.OrderedMap[string, *Method]
-
 // Method contains info about a method.
 type Method struct {
 	// Func embeds all Func properties.
@@ -139,6 +134,9 @@ type Method struct {
 	// Receiver is nil if this is an interface method without a receiver.
 	Receiver *Field
 }
+
+// MethodMap maps methods by their name in parse order.
+type MethodMap = maps.OrderedMap[string, *Method]
 
 // Const contains info about a constant.
 type Const struct {
@@ -201,9 +199,6 @@ type Struct struct {
 	Fields *FieldMap
 }
 
-// FieldMap maps fields by their name in parse order.
-type FieldMap = maps.OrderedMap[string, *Field]
-
 // Field contains info about a struct field, method receiver, or method or func
 // type params, params or results.
 type Field struct {
@@ -218,6 +213,9 @@ type Field struct {
 	// Unnamed is true if field is unnamed and specifies the type only.
 	Unnamed bool
 }
+
+// FieldMap maps fields by their name in parse order.
+type FieldMap = maps.OrderedMap[string, *Field]
 
 // NewPackage returns a new *Package.
 func NewPackage() *Package {
@@ -276,14 +274,14 @@ func NewStruct() *Struct { return &Struct{Fields: maps.MakeOrderedMap[string, *F
 // NewField returns a new *Field.
 func NewField() *Field { return &Field{} }
 
-func (self *Package) GetName() string   { return self.Name }
-func (self *File) GetName() string      { return self.Name }
-func (self *ImportSpec) GetName() string    { return self.Name }
-func (self *Func) GetName() string      { return self.Name }
-func (self *Method) GetName() string    { return self.Name }
-func (self *Var) GetName() string       { return self.Name }
-func (self *Const) GetName() string     { return self.Name }
-func (self *Type) GetName() string      { return self.Name }
-func (self *Interface) GetName() string { return self.Name }
-func (self *Struct) GetName() string    { return self.Name }
-func (self *Field) GetName() string     { return self.Name }
+func (self *Package) GetName() string    { return self.Name }
+func (self *File) GetName() string       { return self.Name }
+func (self *ImportSpec) GetName() string { return self.Name }
+func (self *Func) GetName() string       { return self.Name }
+func (self *Method) GetName() string     { return self.Name }
+func (self *Var) GetName() string        { return self.Name }
+func (self *Const) GetName() string      { return self.Name }
+func (self *Type) GetName() string       { return self.Name }
+func (self *Interface) GetName() string  { return self.Name }
+func (self *Struct) GetName() string     { return self.Name }
+func (self *Field) GetName() string      { return self.Name }
