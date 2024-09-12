@@ -104,51 +104,56 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 			}
 			return nil, fmt.Errorf("parse packages: %w", errors.Join(errs...))
 		}
-		bast.parsePackage(pkg, bast.Packages)
+		bast.parsePackage(pkg, bast.packages)
 	}
 
 	return
 }
 
+// parsePackage parses a package into a bast package, adds it to PackageMap
+// keying it by its package path.
 func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 
-	var val = NewPackage()
-	val.Name = in.Name
+	var pkg = NewPackage()
+	pkg.Name = in.Name
 
 	for idx, file := range in.Syntax {
-		self.parseFile(filepath.Base(in.CompiledGoFiles[idx]), file, val.Files)
+		self.parseFile(in.CompiledGoFiles[idx], file, pkg.Files)
 	}
 
-	val.pkg = in
-	val.Path = in.PkgPath
+	pkg.pkg = in
+	pkg.Path = in.PkgPath
 
-	out.Put(val.Name, val)
+	out.Put(pkg.Path, pkg)
 
 	return
 }
 
-func (self *Bast) parseFile(name string, in *ast.File, out *FileMap) {
+// parseFile parses an ast file parsed from fileName into a bast [File] and
+// adds it to [FileMap], keyed by filename.
+func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 
-	var val = NewFile()
-	val.Name = name
+	var file = NewFile()
+	file.Name = filepath.Base(fileName)
+	file.FileName = fileName
 
 	for _, comment := range in.Comments {
 		var cg []string
 		self.parseCommentGroup(comment, &cg)
-		val.Comments = append(val.Comments, cg)
+		file.Comments = append(file.Comments, cg)
 	}
 
-	self.parseCommentGroup(in.Doc, &val.Doc)
+	self.parseCommentGroup(in.Doc, &file.Doc)
 
 	for _, imprt := range in.Imports {
-		self.parseImportSpec(imprt, val.Imports)
+		self.parseImportSpec(imprt, file.Imports)
 	}
 
 	for _, d := range in.Decls {
-		self.parseDeclarations(d.(ast.Node), val.Declarations)
+		self.parseDeclarations(d.(ast.Node), file.Declarations)
 	}
 
-	out.Put(val.Name, val)
+	out.Put(file.FileName, file)
 
 	return
 }
@@ -158,7 +163,12 @@ func (self *Bast) parseDeclarations(in ast.Node, out *DeclarationMap) {
 	case *ast.GenDecl:
 		switch n.Tok {
 		case token.CONST:
-			self.parseConsts(n, out)
+			for _, spec := range n.Specs {
+				switch s := spec.(type) {
+				case *ast.ValueSpec:
+					self.parseConsts(s, out)
+				}
+			}
 		case token.VAR:
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
@@ -206,6 +216,7 @@ func (self *Bast) parseDeclarations(in ast.Node, out *DeclarationMap) {
 	return
 }
 
+// parseCommentGroup a comment group into a string slice, line per entry.
 func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 	if in == nil {
 		return
@@ -227,29 +238,22 @@ func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 	return
 }
 
-func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
+func (self *Bast) parseConsts(in *ast.ValueSpec, out *DeclarationMap) {
 	var lastType string
-	for _, spec := range in.Specs {
-		switch s := spec.(type) {
-		case *ast.ValueSpec:
-			for i := 0; i < len(s.Names); i++ {
-				var val = NewConst()
-				val.Name = self.printExpr(s.Names[i])
-				self.parseCommentGroup(s.Doc, &val.Doc)
-				if s.Type != nil {
-					val.Type = self.printExpr(s.Type)
-					lastType = val.Type
-				} else if lastType != "" {
-					val.Type = lastType
-				}
-				if s.Values != nil {
-					val.Value = self.printExpr(s.Values[i])
-				}
-				out.Put(val.Name, val)
-			}
-		default:
-			panic("parseConsts: unsupported spec")
+	for i := 0; i < len(in.Names); i++ {
+		var val = NewConst()
+		val.Name = self.printExpr(in.Names[i])
+		self.parseCommentGroup(in.Doc, &val.Doc)
+		if in.Type != nil {
+			val.Type = self.printExpr(in.Type)
+			lastType = val.Type
+		} else if lastType != "" {
+			val.Type = lastType
 		}
+		if in.Values != nil {
+			val.Value = self.printExpr(in.Values[i])
+		}
+		out.Put(val.Name, val)
 	}
 }
 

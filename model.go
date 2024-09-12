@@ -18,17 +18,14 @@ import (
 
 // Bast is a top level struct that contains parsed go packages.
 type Bast struct {
-	// config is the parser configuration.
+	// packages maps bast Packages by their import path.
+	packages *PackageMap
+	// config is the parser configuration used to parse current declarations..
 	config *Config
-	// fset is the fileset of the parsed package.
+	// fset is the fileset of parsed packages.
 	fset *token.FileSet
-	// p is ast/printer for printing nodes.
+	// p prints nodes using ast/printer.
 	p *printer.Config
-	// Packages is a list of packages parsed into bast using Load().
-	//
-	// Files outside of a package given to Load will be placed in a package
-	// with an empty name.
-	Packages *PackageMap
 }
 
 // new returns a new, empty *Bast.
@@ -36,7 +33,7 @@ func new() *Bast {
 	return &Bast{
 		fset:     token.NewFileSet(),
 		p:        &printer.Config{Tabwidth: 8},
-		Packages: maps.MakeOrderedMap[string, *Package](),
+		packages: maps.MakeOrderedMap[string, *Package](),
 	}
 }
 
@@ -72,6 +69,8 @@ type File struct {
 	Doc []string
 	// Name is the File name, without path.
 	Name string
+	// FileName is the parsed go source file full path.
+	FileName string
 	// Imports is a list of file imports.
 	Imports *ImportSpecMap
 	// Declarations is a list of top level declarations in the file.
@@ -146,7 +145,7 @@ type Const struct {
 	Name string
 	// Type is the const type, empty if undpecified.
 	Type string
-	// Value is the const value, empty if undpecified.
+	// Value is the const value, empty if unspecified.
 	Value string
 }
 

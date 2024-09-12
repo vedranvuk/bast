@@ -45,14 +45,14 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 			fmt.Fprintf(wr, "%s%s\n", p, s)
 		}
 	}
-	for _, pkg := range bast.Packages.Values() {
+	for _, pkg := range bast.packages.Values() {
 		p("Package\t\"%s\"\t(%s)\n", pkg.Name, pkg.Path)
 		for _, file := range pkg.Files.Values() {
 			if self.PrintDoc {
 				pl("\t", file.Doc)
 			}
-			p("\tFile\t\"%s\"\n", file.Name)
-			if file.Imports.Len() > 0{
+			p("\tFile\t\"%s\t(%s)\"\n", file.Name, file.FileName)
+			if file.Imports.Len() > 0 {
 				p("\t\tImports\"\n")
 				for _, key := range file.Imports.Keys() {
 					var i, _ = file.Imports.Get(key)

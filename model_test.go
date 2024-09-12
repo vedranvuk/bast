@@ -9,6 +9,9 @@ func TestImportSpecForTypeSelector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, pkg := range bast.Packages() {
+		_ = pkg
+	}
 	_ = bast
 	// bast.ImportSpecForTypeSelector("types.ID")
 }
