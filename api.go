@@ -47,7 +47,7 @@ func (self *Bast) PackageNames() (out []string) {
 // If typeName is already a name of a basic type it is returned as is.
 // If basic type was not found resolved returns an empty string.
 //
-// [Config.TypeChecking] must be enabled for this method to work.
+// Requires [Config.TypeChecking].
 func (self *Bast) ResolveBasicType(typeName string) string {
 
 	var o types.Object

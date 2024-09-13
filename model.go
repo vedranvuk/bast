@@ -77,6 +77,35 @@ type File struct {
 	Declarations *DeclarationMap
 }
 
+// fileDecl returns a declaration named declName of model T from any package.
+func fileDecl[T Declaration](declName string, file *File) (out T) {
+	if decl, ok := file.Declarations.Get(declName); ok {
+		out, _ = decl.(T)
+	}
+	return
+}
+
+// Var returns a Var declaration from File under name or nil if not found.
+func (self *File) Var(name string) (out *Var) { return fileDecl[*Var](name, self) }
+
+// Var returns a Const declaration from File under name or nil if not found.
+func (self *File) Const(name string) (out *Const) { return fileDecl[*Const](name, self) }
+
+// Var returns a Func declaration from File under name or nil if not found.
+func (self *File) Func(name string) (out *Func) { return fileDecl[*Func](name, self) }
+
+// Var returns a Method declaration from File under name or nil if not found.
+func (self *File) Method(name string) (out *Method) { return fileDecl[*Method](name, self) }
+
+// Var returns a Type declaration from File under name or nil if not found.
+func (self *File) Type(name string) (out *Type) { return fileDecl[*Type](name, self) }
+
+// Var returns a Struct declaration from File under name or nil if not found.
+func (self *File) Struct(name string) (out *Struct) { return fileDecl[*Struct](name, self) }
+
+// Var returns a Interface declaration from File under name or nil if not found.
+func (self *File) Interface(name string) (out *Interface) { return fileDecl[*Interface](name, self) }
+
 // FileMap maps files by their name in parse order.
 type FileMap = maps.OrderedMap[string, *File]
 
