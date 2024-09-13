@@ -51,12 +51,12 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 			if self.PrintDoc {
 				pl("\t", file.Doc)
 			}
-			p("\tFile\t\"%s\t(%s)\"\n", file.Name, file.FileName)
+			p("\tFile\t\"%s\"\t(%s)\n", file.Name, file.FileName)
 			if file.Imports.Len() > 0 {
 				p("\t\tImports\"\n")
 				for _, key := range file.Imports.Keys() {
 					var i, _ = file.Imports.Get(key)
-					p("\t\t\t%s\t(%s)\n", i.Name, i.Path)
+					p("\t\t\t\"%s\"\t(%s)\n", i.Name, i.Path)
 				}
 			}
 

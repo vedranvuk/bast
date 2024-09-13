@@ -32,7 +32,7 @@ func (self *Bast) Packages() []*Package { return self.packages.Values() }
 // PackageImportPaths returns package paths of all loaded packages.
 func (self *Bast) PackageImportPaths() []string { return self.packages.Keys() }
 
-// PkgByImportPath returns a package by it import path.
+// PkgByImportPath returns a package by its import path or nil if not found.
 func (self *Bast) PkgByImportPath(pkgPath string) (p *Package) {
 	var exists bool
 	if p, exists = self.packages.Get(pkgPath); !exists {
@@ -80,36 +80,6 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 	}
 
 	return t.String()
-}
-
-// TypeImports returns imports needed for declaration.
-func (self *Bast) TypeImports(typeName string) (imports []string) {
-
-	var o types.Object
-	for _, p := range self.packages.Values() {
-		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
-			break
-		}
-	}
-
-	if o == nil {
-		return nil
-	}
-
-	var t types.Type = o.Type()
-	for {
-		var p = o.Pkg()
-		imports = append(imports, p.Path())
-		if t.Underlying() == nil {
-			return
-		}
-		if t.Underlying() == t {
-			break
-		}
-		t = t.Underlying()
-	}
-
-	return
 }
 
 // VarsOfType returns all top level variable declarations from a package named
@@ -393,8 +363,8 @@ func anyDecl[T declarations](declName string, p *PackageMap) (out T) {
 		for _, file := range pkg.Files.Values() {
 			if decl, ok := file.Declarations.Get(declName); ok {
 				out, _ = decl.(T)
+				return
 			}
-			return
 		}
 	}
 	return

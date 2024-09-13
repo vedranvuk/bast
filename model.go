@@ -10,9 +10,11 @@ import (
 	"go/printer"
 	"go/token"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/vedranvuk/ds/maps"
+	"github.com/vedranvuk/strutils"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -72,6 +74,8 @@ type File struct {
 	Imports *ImportSpecMap
 	// Declarations is a list of top level declarations in the file.
 	Declarations *DeclarationMap
+	// pkg is the parent *Package.
+	pkg *Package
 }
 
 // Var returns a Var declaration from File under name or nil if not found.
@@ -111,23 +115,6 @@ func fileDecl[T declarations](declName string, file *File) (out T) {
 // FileMap maps files by their FileName in parse order.
 type FileMap = maps.OrderedMap[string, *File]
 
-// ImportSpecForTypeSelector returns an ImportSpec for package that contains
-// the type specified by typeName. Returns nil if not found.
-//
-// Requires [Config.TypeChecking].
-func (self File) ImportSpecForTypeSelector(typeName string) *ImportSpec {
-	var pkg, _, ok = strings.Cut(typeName, ".")
-	if !ok {
-		return nil
-	}
-	for _, v := range self.Imports.Values() {
-		if path.Base(v.Path) == pkg {
-			return v
-		}
-	}
-	return nil
-}
-
 // ImportSpec contains info about an Package or File import.
 type ImportSpec struct {
 	// Doc is the import doc.
@@ -160,6 +147,8 @@ type Model struct {
 	Doc []string
 	// Name is the declaration name.
 	Name string
+	// file is the file where the declaration is parsed from.
+	file *File
 }
 
 // GetDoc returns declarartion doc comment.
@@ -168,7 +157,46 @@ func (self *Model) GetDoc() []string { return self.Doc }
 // GetName returns declaration name.
 func (self *Model) GetName() string { return self.Name }
 
+// PackageImportBySelectorExpr returns an ImportSpec tat defines an import 
+// reffered to by selectorExpr, e.g. "package.TypeName"
+// It returns nil if not found or selectorExpr is invalid.
+func (self *Model) PackageImportBySelectorExpr(selectorExpr string) *ImportSpec {
+
+	var pkg, sel, ok = strings.Cut(selectorExpr, ".")
+	if !ok || pkg == "" || sel == "" {
+		return nil
+	}
+
+	for _, imp := range self.file.Imports.Values() {
+
+		// Package is named.
+		if imp.Name == pkg {
+			return imp
+		}
+
+		// Trim major version suffix if present.
+		var s, _ = strutils.UnquoteDouble(imp.Path) 
+		s = path.Base(s)
+		if strings.HasPrefix(s, "v") {
+			if _, err := strconv.Atoi(s[1:]); err == nil {
+				s = path.Base(imp.Path[:len(imp.Path) - len(s)+1])
+			}
+		}
+
+		// last import path element matches selector package.
+		if s == pkg {
+			return imp
+		}
+
+	}
+
+	return nil
+}
+
 // Var contains info about a variable.
+//
+// If a variable was declared with implicit type, Type will be empty.
+// If a variable was declared without an initial value, Value will be empty.
 type Var struct {
 	// Model is the declaration base.
 	Model
@@ -179,6 +207,8 @@ type Var struct {
 }
 
 // Const contains info about a constant.
+//
+// If a variable was declared with implicit type, Type will be empty.
 type Const struct {
 	// Model is the declaration base.
 	Model
@@ -234,6 +264,7 @@ type Type struct {
 	// Model is the declaration base.
 	Model
 	// Type is Type's underlying type.
+	//
 	// The name can be a selector qualifying the package it originates in.
 	Type string
 	// IsAlias is true if type is an alias of the type it derives from.
@@ -273,12 +304,13 @@ func NewPackage(name, path string, pkg *packages.Package) *Package {
 }
 
 // NewFile returns a new *File.
-func NewFile(name, fileName string) *File {
+func NewFile(pkg *Package, name, fileName string) *File {
 	return &File{
 		Name:         name,
 		FileName:     fileName,
 		Imports:      maps.MakeOrderedMap[string, *ImportSpec](),
 		Declarations: maps.MakeOrderedMap[string, Declaration](),
+		pkg:          pkg,
 	}
 }
 
@@ -291,10 +323,11 @@ func NewImport(name, path string) *ImportSpec {
 }
 
 // NewFunc returns a new *Func.
-func NewFunc(name string) *Func {
+func NewFunc(file *File, name string) *Func {
 	return &Func{
 		Model: Model{
 			Name: name,
+			file: file,
 		},
 		TypeParams: maps.MakeOrderedMap[string, *Field](),
 		Params:     maps.MakeOrderedMap[string, *Field](),
@@ -303,17 +336,18 @@ func NewFunc(name string) *Func {
 }
 
 // NewMethod returns a new *Method.
-func NewMethod(name string) *Method {
+func NewMethod(file *File, name string) *Method {
 	return &Method{
-		Func: *NewFunc(name),
+		Func: *NewFunc(file, name),
 	}
 }
 
 // NewConst returns a new *Const.
-func NewConst(name, typ string) *Const {
+func NewConst(file *File, name, typ string) *Const {
 	return &Const{
 		Model: Model{
 			Name: name,
+			file: file,
 		},
 		Type: typ,
 	}
@@ -321,20 +355,22 @@ func NewConst(name, typ string) *Const {
 }
 
 // NewVar returns a new *Var.
-func NewVar(name, typ string) *Var {
+func NewVar(file *File, name, typ string) *Var {
 	return &Var{
 		Model: Model{
 			Name: name,
+			file: file,
 		},
 		Type: typ,
 	}
 }
 
 // NewType returns a new *Type.
-func NewType(name, typ string) *Type {
+func NewType(file *File, name, typ string) *Type {
 	return &Type{
 		Model: Model{
 			Name: name,
+			file: file,
 		},
 		Type:       typ,
 		TypeParams: maps.MakeOrderedMap[string, *Field](),
@@ -342,18 +378,23 @@ func NewType(name, typ string) *Type {
 }
 
 // NewInterface returns a new *Interface.
-func NewInterface() *Interface {
+func NewInterface(file *File, name string) *Interface {
 	return &Interface{
+		Model: Model{
+			Name: name,
+			file: file,
+		},
 		Methods:    maps.MakeOrderedMap[string, *Method](),
 		Interfaces: maps.MakeOrderedMap[string, *Field](),
 	}
 }
 
 // NewStruct returns a new *Struct.
-func NewStruct(name string) *Struct {
+func NewStruct(file *File, name string) *Struct {
 	return &Struct{
 		Model: Model{
 			Name: name,
+			file: file,
 		},
 		Fields: maps.MakeOrderedMap[string, *Field]()}
 }

@@ -130,7 +130,7 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 	var pkg = NewPackage(in.Name, in.PkgPath, in)
 	for idx, file := range in.Syntax {
-		self.parseFile(in.CompiledGoFiles[idx], file, pkg.Files)
+		self.parseFile(pkg, in.CompiledGoFiles[idx], file, pkg.Files)
 	}
 	out.Put(pkg.Path, pkg)
 	return
@@ -138,9 +138,9 @@ func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 
 // parseFile parses an ast file parsed from fileName into a bast [File] and
 // adds it to [FileMap], keyed by filename.
-func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
+func (self *Bast) parseFile(pkg *Package, fileName string, in *ast.File, out *FileMap) {
 
-	var file = NewFile(self.printExpr(in.Name), fileName)
+	var file = NewFile(pkg, self.printExpr(in.Name), fileName)
 
 	for _, comment := range in.Comments {
 		var cg []string
@@ -155,7 +155,7 @@ func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 	}
 
 	for _, d := range in.Decls {
-		self.parseDeclaration(d.(ast.Node), file.Declarations)
+		self.parseDeclaration(file, d.(ast.Node), file.Declarations)
 	}
 
 	out.Put(file.FileName, file)
@@ -164,14 +164,14 @@ func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 }
 
 // parseDeclaration parses in node into a DeclarationMap out.
-func (self *Bast) parseDeclaration(in ast.Node, out *DeclarationMap) {
+func (self *Bast) parseDeclaration(file *File, in ast.Node, out *DeclarationMap) {
 	switch n := in.(type) {
 	case *ast.GenDecl:
 		switch n.Tok {
 		case token.VAR:
-			self.parseVars(n, out)
+			self.parseVars(file, n, out)
 		case token.CONST:
-			self.parseConsts(n, out)
+			self.parseConsts(file, n, out)
 		case token.TYPE:
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
@@ -181,21 +181,21 @@ func (self *Bast) parseDeclaration(in ast.Node, out *DeclarationMap) {
 					}
 					switch s.Type.(type) {
 					case *ast.InterfaceType:
-						self.parseInterface(n, s, out)
+						self.parseInterface(file, n, s, out)
 					case *ast.StructType:
-						self.parseStruct(n, s, out)
+						self.parseStruct(file, n, s, out)
 					case *ast.ArrayType:
-						self.parseType(n, s, out)
+						self.parseType(file, n, s, out)
 					case *ast.FuncType:
-						self.parseFuncType(n, s, out)
+						self.parseFuncType(file, n, s, out)
 					case *ast.Ident:
-						self.parseType(n, s, out)
+						self.parseType(file, n, s, out)
 					case *ast.ChanType:
-						self.parseType(n, s, out)
+						self.parseType(file, n, s, out)
 					case *ast.MapType:
-						self.parseType(n, s, out)
+						self.parseType(file, n, s, out)
 					case *ast.SelectorExpr:
-						self.parseType(n, s, out)
+						self.parseType(file, n, s, out)
 					default:
 						fmt.Println(self.printExpr(s))
 					}
@@ -204,9 +204,9 @@ func (self *Bast) parseDeclaration(in ast.Node, out *DeclarationMap) {
 		}
 	case *ast.FuncDecl:
 		if n.Recv != nil {
-			self.parseMethod(n, out)
+			self.parseMethod(file, n, out)
 		} else {
-			self.parseFunc(n, out)
+			self.parseFunc(file, n, out)
 		}
 	}
 	return
@@ -235,7 +235,7 @@ func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 }
 
 // parseVars parses a GenDecl in of vars into a DeclarationMap out.
-func (self *Bast) parseVars(in *ast.GenDecl, out *DeclarationMap) {
+func (self *Bast) parseVars(file *File, in *ast.GenDecl, out *DeclarationMap) {
 
 	for _, spec := range in.Specs {
 
@@ -247,6 +247,7 @@ func (self *Bast) parseVars(in *ast.GenDecl, out *DeclarationMap) {
 		for i := 0; i < len(vspec.Names); i++ {
 
 			var val = NewVar(
+				file,
 				self.printExpr(vspec.Names[i]),
 				self.printExpr(vspec.Type),
 			)
@@ -267,7 +268,7 @@ func (self *Bast) parseVars(in *ast.GenDecl, out *DeclarationMap) {
 }
 
 // parseVars parses a GenDecl in of consts into a DeclarationMap out.
-func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
+func (self *Bast) parseConsts(file *File, in *ast.GenDecl, out *DeclarationMap) {
 	for _, spec := range in.Specs {
 
 		var vspec, ok = spec.(*ast.ValueSpec)
@@ -278,6 +279,7 @@ func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
 		for i := 0; i < len(vspec.Names); i++ {
 
 			var val = NewConst(
+				file,
 				self.printExpr(vspec.Names[i]),
 				self.printExpr(vspec.Type),
 			)
@@ -298,8 +300,8 @@ func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
 }
 
 // parseFunc parses in func decl into DeclarationMap out.
-func (self *Bast) parseFunc(in *ast.FuncDecl, out *DeclarationMap) {
-	var val = NewFunc(self.printExpr(in.Name))
+func (self *Bast) parseFunc(file *File, in *ast.FuncDecl, out *DeclarationMap) {
+	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
 	self.parseFieldList(in.Type.Params, val.Params)
@@ -308,8 +310,8 @@ func (self *Bast) parseFunc(in *ast.FuncDecl, out *DeclarationMap) {
 }
 
 // parseMethod parses in method decl into DeclarationMap out.
-func (self *Bast) parseMethod(in *ast.FuncDecl, out *DeclarationMap) {
-	var val = NewMethod(self.printExpr(in.Name))
+func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap) {
+	var val = NewMethod(file, self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 
 	if in.Recv != nil {
@@ -329,8 +331,8 @@ func (self *Bast) parseMethod(in *ast.FuncDecl, out *DeclarationMap) {
 
 // parseFuncType parses func type spec in into a DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
-	var val = NewFunc(self.printExpr(in.Name))
+func (self *Bast) parseFuncType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
 	var ft = in.Type.(*ast.FuncType)
 	self.parseFieldList(in.TypeParams, val.TypeParams)
@@ -342,8 +344,9 @@ func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out *Declarati
 
 // parseType parses type spec in into a DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Bast) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var val = NewType(
+		file,
 		self.printExpr(in.Name),
 		self.printExpr(in.Type),
 	)
@@ -382,16 +385,15 @@ func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
 
 // parseStruct parses an interface declaration in into DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Bast) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var it, ok = in.Type.(*ast.InterfaceType)
 	if !ok {
 		return
 	}
 
-	var val = NewInterface()
+	var val = NewInterface(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
-	val.Name = self.printExpr(in.Name)
 
 	for _, method := range it.Methods.List {
 		if len(method.Names) == 0 {
@@ -402,7 +404,7 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *Declarat
 			intf.Unnamed = true
 			val.Interfaces.Put(intf.Type, intf)
 		} else {
-			var m = NewMethod(self.printExpr(method.Names[0]))
+			var m = NewMethod(file, self.printExpr(method.Names[0]))
 			self.parseCommentGroup(method.Doc, &m.Doc)
 			var ft = method.Type.(*ast.FuncType)
 			self.parseFieldList(ft.TypeParams, m.TypeParams)
@@ -419,14 +421,14 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *Declarat
 
 // parseStruct parses a struct declaration in into DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var st, ok = in.Type.(*ast.StructType)
 	if !ok {
 		return
 	}
 
-	var val = NewStruct(self.printExpr(in.Name))
+	var val = NewStruct(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
 
 	for _, field := range st.Fields.List {
