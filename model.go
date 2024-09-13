@@ -16,7 +16,8 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Bast is a top level struct that contains parsed go packages.
+// Bast holds lists of top level declarations found in a set of parsed packages.
+// it is returned the by [Load] function.
 type Bast struct {
 	// packages maps bast Packages by their import path.
 	packages *PackageMap
@@ -37,22 +38,13 @@ func new() *Bast {
 	}
 }
 
-// Declaration represents a top level declaration in a Go file.
-type Declaration interface {
-	// GetName returns the Declaration name.
-	GetName() string
-}
-
-// DeclarationMap maps declarations by their name in parse order.
-type DeclarationMap = maps.OrderedMap[string, Declaration]
-
 // Package contains info about a Go package.
 type Package struct {
-	// Name is the package name, without path, as it appears in source code..
+	// Name is the package name, without path, as it appears in source code.
 	Name string
-	// Path is the package path as it appears in go import path.
+	// Path is the package path as used by go compiler.
 	Path string
-	// Files is a list of files in the package.
+	// Files maps full path to parsed go source file
 	Files *FileMap
 	// pkg is the parsed package.
 	pkg *packages.Package
@@ -77,14 +69,6 @@ type File struct {
 	Declarations *DeclarationMap
 }
 
-// fileDecl returns a declaration named declName of model T from any package.
-func fileDecl[T Declaration](declName string, file *File) (out T) {
-	if decl, ok := file.Declarations.Get(declName); ok {
-		out, _ = decl.(T)
-	}
-	return
-}
-
 // Var returns a Var declaration from File under name or nil if not found.
 func (self *File) Var(name string) (out *Var) { return fileDecl[*Var](name, self) }
 
@@ -106,7 +90,20 @@ func (self *File) Struct(name string) (out *Struct) { return fileDecl[*Struct](n
 // Var returns a Interface declaration from File under name or nil if not found.
 func (self *File) Interface(name string) (out *Interface) { return fileDecl[*Interface](name, self) }
 
-// FileMap maps files by their name in parse order.
+// declarations is bast declarations typeset.
+type declarations interface {
+	*Var | *Const | *Func | *Method | *Type | *Struct | *Interface
+}
+
+// fileDecl returns a declaration named declName of model T from file.
+func fileDecl[T declarations](declName string, file *File) (out T) {
+	if decl, ok := file.Declarations.Get(declName); ok {
+		out, _ = decl.(T)
+	}
+	return
+}
+
+// FileMap maps files by their FileName in parse order.
 type FileMap = maps.OrderedMap[string, *File]
 
 // ImportSpecForTypeSelector returns an ImportSpec for package that contains
@@ -126,7 +123,7 @@ func (self File) ImportSpecForTypeSelector(typeName string) *ImportSpec {
 	return nil
 }
 
-// ImportSpec contians info about an import.
+// ImportSpec contains info about an Package or File import.
 type ImportSpec struct {
 	// Doc is the import doc.
 	Doc []string
@@ -136,15 +133,74 @@ type ImportSpec struct {
 	Path string
 }
 
-// ImportSpecMap maps imports by their name in parse order.
+// ImportSpecMap maps imports by their path in parse order.
 type ImportSpecMap = maps.OrderedMap[string, *ImportSpec]
+
+// Declaration represents a top level declaration in a Go file.
+type Declaration interface {
+	// GetDoc returns declaration doc comment.
+	GetDoc() []string
+	// GetName returns the Declaration name.
+	GetName() string
+}
+
+// DeclarationMap maps declarations by their name in parse order.
+type DeclarationMap = maps.OrderedMap[string, Declaration]
+
+// Model is the bast model base. All declarations embed this model.
+type Model struct {
+	// Doc is the import doc.
+	Doc []string
+	// Name is the import name, possibly empty, "." or some custom name.
+	Name string
+}
+
+// GetDoc returns declarartion doc comment.
+func (self *Model) GetDoc() []string { return self.Doc }
+
+// GetName returns declaration name.
+func (self *Model) GetName() string { return self.Name }
+
+// Var contains info about a variable.
+type Var struct {
+	// Model is the declaration base.
+	Model
+	// Type is the const type, empty if undpecified.
+	Type string
+	// Value is the const value, empty if undpecified.
+	Value string
+}
+
+// Const contains info about a constant.
+type Const struct {
+	// Model is the declaration base.
+	Model
+	// Type is the const type, empty if undpecified.
+	Type string
+	// Value is the const value, empty if unspecified.
+	Value string
+}
+
+// Field contains info about a struct field, method receiver, or method or func
+// type params, params or results.
+type Field struct {
+	// Model is the declaration base.
+	Model
+	// Type is the field type.
+	Type string
+	// Tag is the field raw tag string.
+	Tag string
+	// Unnamed is true if field is unnamed and specifies the type only.
+	Unnamed bool
+}
+
+// FieldMap maps fields by their name in parse order.
+type FieldMap = maps.OrderedMap[string, *Field]
 
 // Func contains info about a function.
 type Func struct {
-	// Doc is the func doc comment.
-	Doc []string
-	// Name is the func name.
-	Name string
+	// Model is the declaration base.
+	Model
 	// TypeParams are type parameters.
 	TypeParams *FieldMap
 	//  Params is a list of func arguments.
@@ -166,36 +222,10 @@ type Method struct {
 // MethodMap maps methods by their name in parse order.
 type MethodMap = maps.OrderedMap[string, *Method]
 
-// Const contains info about a constant.
-type Const struct {
-	// Doc is the const doc comment.
-	Doc []string
-	// Name is the constant name.
-	Name string
-	// Type is the const type, empty if undpecified.
-	Type string
-	// Value is the const value, empty if unspecified.
-	Value string
-}
-
-// Var contains info about a variable.
-type Var struct {
-	// Doc is the const doc comment.
-	Doc []string
-	// Name is the constant name.
-	Name string
-	// Type is the const type, empty if undpecified.
-	Type string
-	// Value is the const value, empty if undpecified.
-	Value string
-}
-
 // Type contains info about a type.
 type Type struct {
-	// Doc is the struct doc comment.
-	Doc []string
-	// Name is the struct name.
-	Name string
+	// Model is the declaration base.
+	Model
 	// Type is Type's underlying type.
 	// The name can be a selector qualifying the package it originates in.
 	Type string
@@ -203,12 +233,18 @@ type Type struct {
 	IsAlias bool
 }
 
+// Struct contains info about a struct.
+type Struct struct {
+	// Model is the declaration base.
+	Model
+	// Fields is a list of struct fields.
+	Fields *FieldMap
+}
+
 // Interface contains info about an interface.
 type Interface struct {
-	// Doc is the interface doc comment.
-	Doc []string
-	// Name is the interface name.
-	Name string
+	// Model is the declaration base.
+	Model
 	// Methods is a list of methods defined by the interface.
 	Methods *MethodMap
 	// Interface is a list of inherited interfaces.
@@ -217,55 +253,40 @@ type Interface struct {
 	Interfaces *FieldMap
 }
 
-// Struct contains info about a struct.
-type Struct struct {
-	// Doc is the struct doc comment.
-	Doc []string
-	// Name is the struct name.
-	Name string
-	// Fields is a list of struct fields.
-	Fields *FieldMap
-}
-
-// Field contains info about a struct field, method receiver, or method or func
-// type params, params or results.
-type Field struct {
-	// Doc is the field doc comment.
-	Doc []string
-	// Name is the field name.
-	Name string
-	// Type is the field type.
-	Type string
-	// Tag is the field raw tag string.
-	Tag string
-	// Unnamed is true if field is unnamed and specifies the type only.
-	Unnamed bool
-}
-
-// FieldMap maps fields by their name in parse order.
-type FieldMap = maps.OrderedMap[string, *Field]
-
 // NewPackage returns a new *Package.
-func NewPackage() *Package {
+func NewPackage(name, path string, pkg *packages.Package) *Package {
 	return &Package{
+		Name:  name,
+		Path:  path,
 		Files: maps.MakeOrderedMap[string, *File](),
+		pkg:   pkg,
 	}
 }
 
 // NewFile returns a new *File.
-func NewFile() *File {
+func NewFile(name, fileName string) *File {
 	return &File{
+		Name:         name,
+		FileName:     fileName,
 		Imports:      maps.MakeOrderedMap[string, *ImportSpec](),
 		Declarations: maps.MakeOrderedMap[string, Declaration](),
 	}
 }
 
 // NewImport returns a new *Import.
-func NewImport() *ImportSpec { return &ImportSpec{} }
+func NewImport(name, path string) *ImportSpec {
+	return &ImportSpec{
+		Name: name,
+		Path: path,
+	}
+}
 
 // NewFunc returns a new *Func.
-func NewFunc() *Func {
+func NewFunc(name string) *Func {
 	return &Func{
+		Model: Model{
+			Name: name,
+		},
 		TypeParams: maps.MakeOrderedMap[string, *Field](),
 		Params:     maps.MakeOrderedMap[string, *Field](),
 		Results:    maps.MakeOrderedMap[string, *Field](),
@@ -273,20 +294,42 @@ func NewFunc() *Func {
 }
 
 // NewMethod returns a new *Method.
-func NewMethod() *Method {
+func NewMethod(name string) *Method {
 	return &Method{
-		Func: *NewFunc(),
+		Func: *NewFunc(name),
 	}
 }
 
 // NewConst returns a new *Const.
-func NewConst() *Const { return &Const{} }
+func NewConst(name, typ string) *Const {
+	return &Const{
+		Model: Model{
+			Name: name,
+		},
+		Type: typ,
+	}
+
+}
 
 // NewVar returns a new *Var.
-func NewVar() *Var { return &Var{} }
+func NewVar(name, typ string) *Var {
+	return &Var{
+		Model: Model{
+			Name: name,
+		},
+		Type: typ,
+	}
+}
 
 // NewType returns a new *Type.
-func NewType() *Type { return &Type{} }
+func NewType(name, typ string) *Type {
+	return &Type{
+		Model: Model{
+			Name: name,
+		},
+		Type: typ,
+	}
+}
 
 // NewInterface returns a new *Interface.
 func NewInterface() *Interface {
@@ -297,19 +340,13 @@ func NewInterface() *Interface {
 }
 
 // NewStruct returns a new *Struct.
-func NewStruct() *Struct { return &Struct{Fields: maps.MakeOrderedMap[string, *Field]()} }
+func NewStruct(name string) *Struct {
+	return &Struct{
+		Model: Model{
+			Name: name,
+		},
+		Fields: maps.MakeOrderedMap[string, *Field]()}
+}
 
 // NewField returns a new *Field.
 func NewField() *Field { return &Field{} }
-
-func (self *Package) GetName() string    { return self.Name }
-func (self *File) GetName() string       { return self.Name }
-func (self *ImportSpec) GetName() string { return self.Name }
-func (self *Func) GetName() string       { return self.Name }
-func (self *Method) GetName() string     { return self.Name }
-func (self *Var) GetName() string        { return self.Name }
-func (self *Const) GetName() string      { return self.Name }
-func (self *Type) GetName() string       { return self.Name }
-func (self *Interface) GetName() string  { return self.Name }
-func (self *Struct) GetName() string     { return self.Name }
-func (self *Field) GetName() string      { return self.Name }

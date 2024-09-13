@@ -17,6 +17,15 @@ import (
 	"strings"
 )
 
+// PackageNames returns names of all parsed packages.
+func (self *Bast) PackageNames() (out []string) {
+	out = make([]string, 0, self.packages.Len())
+	for _, v := range self.packages.Values() {
+		out = append(out, v.Name)
+	}
+	return
+}
+
 // Packages returns parsed bast packages.
 func (self *Bast) Packages() []*Package { return self.packages.Values() }
 
@@ -28,15 +37,6 @@ func (self *Bast) PkgByImportPath(pkgPath string) (p *Package) {
 	var exists bool
 	if p, exists = self.packages.Get(pkgPath); !exists {
 		return nil
-	}
-	return
-}
-
-// PackageNames returns names of all parsed packages.
-func (self *Bast) PackageNames() (out []string) {
-	out = make([]string, 0, self.packages.Len())
-	for _, v := range self.packages.Values() {
-		out = append(out, v.Name)
 	}
 	return
 }
@@ -113,25 +113,31 @@ func (self *Bast) TypeImports(typeName string) (imports []string) {
 }
 
 // VarsOfType returns all top level variable declarations from a package named
-// pkgName whose type name equals typeName.
-func (self *Bast) VarsOfType(pkgName, typeName string) (out []*Var) {
-	return pkgTypeDecl[*Var](pkgName, typeName, self.packages)
+// pkgPath whose type name equals typeName.
+func (self *Bast) VarsOfType(pkgPath, typeName string) (out []*Var) {
+	return pkgTypeDecl[*Var](pkgPath, typeName, self.packages)
 }
 
 // ConstsOfType returns all top level constant declarations from a package named
-// pkgName whose type name equals typeName.
-func (self *Bast) ConstsOfType(pkgName, typeName string) (out []*Const) {
-	return pkgTypeDecl[*Const](pkgName, typeName, self.packages)
+// pkgPath whose type name equals typeName.
+func (self *Bast) ConstsOfType(pkgPath, typeName string) (out []*Const) {
+	return pkgTypeDecl[*Const](pkgPath, typeName, self.packages)
 }
 
-// MethodSet returns all methods from a package named pkgName whose receiver
+// TypesOfType returns all top level type declarations from a package named
+// pkgPath whose type name equals typeName.
+func (self *Bast) TypesOfType(pkgPath, typeName string) (out []*Const) {
+	return pkgTypeDecl[*Const](pkgPath, typeName, self.packages)
+}
+
+// MethodSet returns all methods from a package named pkgPath whose receiver
 // type matches typeName (star prefixed or not).
-func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
+func (self *Bast) MethodSet(pkgPath, typeName string) (out []*Method) {
 	var (
 		pkg *Package
 		ok  bool
 	)
-	if pkg, ok = self.packages.Get(pkgName); !ok {
+	if pkg, ok = self.packages.Get(pkgPath); !ok {
 		return
 	}
 	for _, file := range pkg.Files.Values() {
@@ -148,12 +154,12 @@ func (self *Bast) MethodSet(pkgName, typeName string) (out []*Method) {
 }
 
 // FieldNames returns a slice of names of fields of a struct named by
-// structName residing in some file in package named pkgName.
-func (self *Bast) FieldNames(pkgName, structName string) (out []string) {
+// structName residing in some file in package named pkgPath.
+func (self *Bast) FieldNames(pkgPath, structName string) (out []string) {
 
 	for _, pkg := range self.packages.Values() {
 
-		if pkg.Name != pkgName {
+		if pkg.Name != pkgPath {
 			continue
 		}
 
@@ -181,11 +187,6 @@ func (self *Bast) AnyConst(declName string) (out *Const) {
 	return anyDecl[*Const](declName, self.packages)
 }
 
-// Type returns a type whose Name==declName from from any package.
-func (self *Bast) AnyType(declName string) (out *Type) {
-	return anyDecl[*Type](declName, self.packages)
-}
-
 // Func returns a func whose Name==declName from from any package.
 func (self *Bast) AnyFunc(declName string) (out *Func) {
 	return anyDecl[*Func](declName, self.packages)
@@ -196,9 +197,9 @@ func (self *Bast) AnyMethod(declName string) (out *Method) {
 	return anyDecl[*Method](declName, self.packages)
 }
 
-// Interface returns a interface whose Name==declName from from any package.
-func (self *Bast) AnyInterface(declName string) (out *Interface) {
-	return anyDecl[*Interface](declName, self.packages)
+// Type returns a type whose Name==declName from from any package.
+func (self *Bast) AnyType(declName string) (out *Type) {
+	return anyDecl[*Type](declName, self.packages)
 }
 
 // Struct returns a struct whose Name==declName from from any package.
@@ -206,82 +207,88 @@ func (self *Bast) AnyStruct(declName string) (out *Struct) {
 	return anyDecl[*Struct](declName, self.packages)
 }
 
-// PkgVar returns a variable whose Name==declName from a package named pkgName.
-func (self *Bast) PkgVar(pkgName, declName string) (out *Var) {
-	return pkgDecl[*Var](pkgName, declName, self.packages)
+// Interface returns a interface whose Name==declName from from any package.
+func (self *Bast) AnyInterface(declName string) (out *Interface) {
+	return anyDecl[*Interface](declName, self.packages)
 }
 
-// PkgConst returns a const whose Name==declName from a package named pkgName.
-func (self *Bast) PkgConst(pkgName, declName string) (out *Const) {
-	return pkgDecl[*Const](pkgName, declName, self.packages)
+// PkgVar returns a variable whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgVar(pkgPath, declName string) (out *Var) {
+	return pkgDecl[*Var](pkgPath, declName, self.packages)
 }
 
-// PkgType returns a type whose Name==declName from a package named pkgName.
-func (self *Bast) PkgType(pkgName, declName string) (out *Type) {
-	return pkgDecl[*Type](pkgName, declName, self.packages)
+// PkgConst returns a const whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgConst(pkgPath, declName string) (out *Const) {
+	return pkgDecl[*Const](pkgPath, declName, self.packages)
 }
 
-// PkgFunc returns a func whose Name==declName from a package named pkgName.
-func (self *Bast) PkgFunc(pkgName, declName string) (out *Func) {
-	return pkgDecl[*Func](pkgName, declName, self.packages)
+// PkgFunc returns a func whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgFunc(pkgPath, declName string) (out *Func) {
+	return pkgDecl[*Func](pkgPath, declName, self.packages)
 }
 
-// PkgMethod returns a method whose Name==declName from a package named pkgName.
-func (self *Bast) PkgMethod(pkgName, declName string) (out *Method) {
-	return pkgDecl[*Method](pkgName, declName, self.packages)
+// PkgMethod returns a method whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgMethod(pkgPath, declName string) (out *Method) {
+	return pkgDecl[*Method](pkgPath, declName, self.packages)
 }
 
-// PkgInterface returns an interface whose Name==declName from a package named pkgName.
-func (self *Bast) PkgInterface(pkgName, declName string) (out *Interface) {
-	return pkgDecl[*Interface](pkgName, declName, self.packages)
+// PkgType returns a type whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgType(pkgPath, declName string) (out *Type) {
+	return pkgDecl[*Type](pkgPath, declName, self.packages)
 }
 
-// PkgStruct returns a struct whose Name==declName from a package named pkgName.
-func (self *Bast) PkgStruct(pkgName, declName string) (out *Struct) {
-	return pkgDecl[*Struct](pkgName, declName, self.packages)
+// PkgStruct returns a struct whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgStruct(pkgPath, declName string) (out *Struct) {
+	return pkgDecl[*Struct](pkgPath, declName, self.packages)
 }
 
-// PkgVars returns all variables in pkgName.
-func (self *Bast) PkgVars(pkgName string) (out []*Var) {
-	return pkgDecls[*Var](pkgName, self.packages)
+// PkgInterface returns an interface whose Name==declName from a package named pkgPath.
+func (self *Bast) PkgInterface(pkgPath, declName string) (out *Interface) {
+	return pkgDecl[*Interface](pkgPath, declName, self.packages)
 }
 
-// PgkConsts returns all consts in pkgName.
-func (self *Bast) PkgConsts(pkgName string) (out []*Const) {
-	return pkgDecls[*Const](pkgName, self.packages)
+// PkgVars returns all variables in pkgPath.
+func (self *Bast) PkgVars(pkgPath string) (out []*Var) {
+	return pkgDecls[*Var](pkgPath, self.packages)
 }
 
-// PkgTypes returns all types in pkgName.
-func (self *Bast) PkgTypes(pkgName string) (out []*Type) {
-	return pkgDecls[*Type](pkgName, self.packages)
+// PgkConsts returns all consts in pkgPath.
+func (self *Bast) PkgConsts(pkgPath string) (out []*Const) {
+	return pkgDecls[*Const](pkgPath, self.packages)
 }
 
-// PkgFuncs returns all functions in pkgName.
-func (self *Bast) PkgFuncs(pkgName string) (out []*Func) {
-	return pkgDecls[*Func](pkgName, self.packages)
+// PkgFuncs returns all functions in pkgPath.
+func (self *Bast) PkgFuncs(pkgPath string) (out []*Func) {
+	return pkgDecls[*Func](pkgPath, self.packages)
 }
 
-// PkgMethods returns all methods in pkgName.
-func (self *Bast) PkgMethods(pkgName string) (out []*Method) {
-	return pkgDecls[*Method](pkgName, self.packages)
+// PkgMethods returns all methods in pkgPath.
+func (self *Bast) PkgMethods(pkgPath string) (out []*Method) {
+	return pkgDecls[*Method](pkgPath, self.packages)
 }
 
-// PkgInterfaces returns all interfaces in pkgName.
-func (self *Bast) PkgInterfaces(pkgName string) (out []*Interface) {
-	return pkgDecls[*Interface](pkgName, self.packages)
+// PkgTypes returns all types in pkgPath.
+func (self *Bast) PkgTypes(pkgPath string) (out []*Type) {
+	return pkgDecls[*Type](pkgPath, self.packages)
 }
 
-// PkgStructs returns all structs in pkgName.
-func (self *Bast) PkgStructs(pkgName string) (out []*Struct) {
-	return pkgDecls[*Struct](pkgName, self.packages)
+// PkgStructs returns all structs in pkgPath.
+func (self *Bast) PkgStructs(pkgPath string) (out []*Struct) {
+	return pkgDecls[*Struct](pkgPath, self.packages)
+}
+
+// PkgInterfaces returns all interfaces in pkgPath.
+func (self *Bast) PkgInterfaces(pkgPath string) (out []*Interface) {
+	return pkgDecls[*Interface](pkgPath, self.packages)
 }
 
 // AllPackages returns all parsed packages.
 func (self *Bast) AllPackages() (out []*Package) {
 	out = make([]*Package, 0, self.packages.Len())
-	for _, p := range self.packages.Values() {
+	self.packages.EnumValues(func(p *Package) bool {
 		out = append(out, p)
-	}
+		return true
+	})
 	return
 }
 
@@ -295,11 +302,6 @@ func (self *Bast) AllConsts() (out []*Const) {
 	return allDecls[*Const](self.packages)
 }
 
-// AllTypes returns all types in self, across all packages.
-func (self *Bast) AllTypes() (out []*Type) {
-	return allDecls[*Type](self.packages)
-}
-
 // AllFuncs returns all functions in self, across all packages.
 func (self *Bast) AllFuncs() (out []*Func) {
 	return allDecls[*Func](self.packages)
@@ -310,9 +312,9 @@ func (self *Bast) AllMethods() (out []*Method) {
 	return allDecls[*Method](self.packages)
 }
 
-// Funcs returns all interfaces in self, across all packages.
-func (self *Bast) AllInterfaces() (out []*Interface) {
-	return allDecls[*Interface](self.packages)
+// AllTypes returns all types in self, across all packages.
+func (self *Bast) AllTypes() (out []*Type) {
+	return allDecls[*Type](self.packages)
 }
 
 // Funcs returns all structs in self, across all packages.
@@ -320,40 +322,46 @@ func (self *Bast) AllStructs() (out []*Struct) {
 	return allDecls[*Struct](self.packages)
 }
 
+// Funcs returns all interfaces in self, across all packages.
+func (self *Bast) AllInterfaces() (out []*Interface) {
+	return allDecls[*Interface](self.packages)
+}
+
 // pkgTypeDecl returns all declarations of model T and type typeName from a
-// package in p named pkgName.
-func pkgTypeDecl[T Declaration](pkgName, typeName string, p *PackageMap) (out []T) {
-	for _, pkg := range p.Values() {
-		if pkg.Name != pkgName {
-			continue
-		}
-		for _, file := range pkg.Files.Values() {
-			for _, decl := range file.Declarations.Values() {
-				switch d := decl.(type) {
-				case *Var:
-					if d.Type != typeName {
-						continue
-					}
-				case *Const:
-					if d.Type != typeName {
-						continue
-					}
-				case *Type:
-					if d.Type != typeName {
-						continue
-					}
-				case *Interface:
-					if d.Name != typeName {
-						continue
-					}
-				case *Struct:
-					if d.Name != typeName {
-						continue
-					}
+// package in p witj pkgPath.
+func pkgTypeDecl[T declarations](pkgPath, typeName string, p *PackageMap) (out []T) {
+
+	var pkg, ok = p.Get(pkgPath)
+	if !ok {
+		return
+	}
+
+	for _, file := range pkg.Files.Values() {
+		for _, decl := range file.Declarations.Values() {
+			switch d := decl.(type) {
+			case *Var:
+				if d.Type != typeName {
+					continue
 				}
-				if v, ok := decl.(T); ok {
-					out = append(out, v)
+			case *Const:
+				if d.Type != typeName {
+					continue
 				}
+			case *Type:
+				if d.Type != typeName {
+					continue
+				}
+			case *Interface:
+				if d.Name != typeName {
+					continue
+				}
+			case *Struct:
+				if d.Name != typeName {
+					continue
+				}
+			}
+			if v, ok := decl.(T); ok {
+				out = append(out, v)
 			}
 		}
 	}
@@ -361,24 +369,26 @@ func pkgTypeDecl[T Declaration](pkgName, typeName string, p *PackageMap) (out []
 }
 
 // pkgDecl returns a declaration named declName of model T from a package
-// in p named pkgName.
-func pkgDecl[T Declaration](pkgName, declName string, p *PackageMap) (out T) {
-	for _, pkg := range p.Values() {
-		if pkg.Name != pkgName {
-			continue
-		}
-		for _, file := range pkg.Files.Values() {
-			if decl, ok := file.Declarations.Get(declName); ok {
-				out, _ = decl.(T)
-				return
-			}
+// in p named pkgPath.
+func pkgDecl[T declarations](pkgPath, declName string, p *PackageMap) (out T) {
+
+	var pkg, ok = p.Get(pkgPath)
+	if !ok {
+		return
+	}
+
+	for _, file := range pkg.Files.Values() {
+		if decl, ok := file.Declarations.Get(declName); ok {
+			out, _ = decl.(T)
+			return
 		}
 	}
+
 	return
 }
 
 // anyDecl returns a declaration named declName of model T from any package.
-func anyDecl[T Declaration](declName string, p *PackageMap) (out T) {
+func anyDecl[T declarations](declName string, p *PackageMap) (out T) {
 	for _, pkg := range p.Values() {
 		for _, file := range pkg.Files.Values() {
 			if decl, ok := file.Declarations.Get(declName); ok {
@@ -390,25 +400,27 @@ func anyDecl[T Declaration](declName string, p *PackageMap) (out T) {
 	return
 }
 
-// pkgDecls returns all declarations of model T from a package in p named pkgName.
-func pkgDecls[T Declaration](pkgName string, p *PackageMap) (out []T) {
-	for _, pkg := range p.Values() {
-		if pkg.Name != pkgName {
-			continue
-		}
-		for _, file := range pkg.Files.Values() {
-			for _, decl := range file.Declarations.Values() {
-				if v, ok := decl.(T); ok {
-					out = append(out, v)
-				}
+// pkgDecls returns all declarations of model T from a package in p named pkgPath.
+func pkgDecls[T declarations](pkgPath string, p *PackageMap) (out []T) {
+
+	var pkg, ok = p.Get(pkgPath)
+	if !ok {
+		return
+	}
+
+	for _, file := range pkg.Files.Values() {
+		for _, decl := range file.Declarations.Values() {
+			if v, ok := decl.(T); ok {
+				out = append(out, v)
 			}
 		}
 	}
+
 	return
 }
 
 // allDecls returns all declarations of type T from all packages p.
-func allDecls[T Declaration](p *PackageMap) (out []T) {
+func allDecls[T declarations](p *PackageMap) (out []T) {
 	for _, pkg := range p.Values() {
 		for _, file := range pkg.Files.Values() {
 			for _, decl := range file.Declarations.Values() {

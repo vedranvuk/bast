@@ -5,6 +5,31 @@ package models
 
 import "github.com/vedranvuk/bast/_testproject/pkg/types"
 
+// a is a variable with implicit type and a value.
+var a = 0
+
+// b is a var with explicit type and a value.
+var b int = 1
+
+// c is a var with explicit type and no value.
+var c int
+
+// d is a constant with implicit type and a value.
+const d = 0
+
+// e is a constant with explicit type and a value.
+const e int = 1
+
+// StructVar is a variable of an inplace defined struct literal.
+var StructVar = struct {
+	Name string
+}{
+	Name: "bast",
+}
+
+// FuncType is a func type.
+type FuncType[K any] func(K) bool
+
 // TestFunc returns no values.
 func TestFunc1() {}
 

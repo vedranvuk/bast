@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"path/filepath"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -17,11 +16,15 @@ import (
 // Config configures [Load].
 type Config struct {
 
+	// -- Build system configuration --
+
 	// Dir is the directory in which to run the build system's query tool
 	// that provides information about the packages.
 	// If Dir is empty, the tool is run in the current directory.
 	//
 	// Package patterns given to [ParsePackages] are relative to this directory.
+	//
+	// Default is "." which sets the build dir to current directory.
 	Dir string
 
 	// BuildFlags is a list of command-line flags to be passed through to
@@ -52,23 +55,35 @@ type Config struct {
 	// setting Tests may have no effect.
 	Tests bool
 
-	// TypeChecking enables type checking for utilities like [Bast.ResolveBasicType].
+	// -- Bast configuration --
+
+	// TypeChecking enables type checking to enable few type resolution
+	// related utilities like [Bast.ResolveBasicType].
+	//
+	// Default: true
 	TypeChecking bool
+
+	// HaltOnTypeCheckErrors if enabled returns an error if typehecking failed
+	// during package load.
+	//
+	// Default: true
+	HaltOnTypeCheckErrors bool
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Dir:          ".",
-		TypeChecking: true,
+		Dir:                   ".",
+		TypeChecking:          true,
+		HaltOnTypeCheckErrors: true,
 	}
 }
 
 // Load loads packages specified by pattern and returns a *Bast of it
 // or an error.
 //
-// An optional config configures what is parsed, paths, etc.
-// See [Config].
+// An optional config configures the underlying go build system
+// and other details. See [Config].
 func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 
 	bast = new()
@@ -97,7 +112,7 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 	}
 
 	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
+		if len(pkg.Errors) > 0 && config.HaltOnTypeCheckErrors {
 			var errs []error
 			for _, e := range pkg.Errors {
 				errs = append(errs, e)
@@ -113,19 +128,11 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 // parsePackage parses a package into a bast package, adds it to PackageMap
 // keying it by its package path.
 func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
-
-	var pkg = NewPackage()
-	pkg.Name = in.Name
-
+	var pkg = NewPackage(in.Name, in.PkgPath, in)
 	for idx, file := range in.Syntax {
 		self.parseFile(in.CompiledGoFiles[idx], file, pkg.Files)
 	}
-
-	pkg.pkg = in
-	pkg.Path = in.PkgPath
-
 	out.Put(pkg.Path, pkg)
-
 	return
 }
 
@@ -133,9 +140,7 @@ func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 // adds it to [FileMap], keyed by filename.
 func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 
-	var file = NewFile()
-	file.Name = filepath.Base(fileName)
-	file.FileName = fileName
+	var file = NewFile(self.printExpr(in.Name), fileName)
 
 	for _, comment := range in.Comments {
 		var cg []string
@@ -145,12 +150,12 @@ func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 
 	self.parseCommentGroup(in.Doc, &file.Doc)
 
-	for _, imprt := range in.Imports {
-		self.parseImportSpec(imprt, file.Imports)
+	for _, imp := range in.Imports {
+		self.parseImportSpec(imp, file.Imports)
 	}
 
 	for _, d := range in.Decls {
-		self.parseDeclarations(d.(ast.Node), file.Declarations)
+		self.parseDeclaration(d.(ast.Node), file.Declarations)
 	}
 
 	out.Put(file.FileName, file)
@@ -158,24 +163,15 @@ func (self *Bast) parseFile(fileName string, in *ast.File, out *FileMap) {
 	return
 }
 
-func (self *Bast) parseDeclarations(in ast.Node, out *DeclarationMap) {
+// parseDeclaration parses in node into a DeclarationMap out.
+func (self *Bast) parseDeclaration(in ast.Node, out *DeclarationMap) {
 	switch n := in.(type) {
 	case *ast.GenDecl:
 		switch n.Tok {
-		case token.CONST:
-			for _, spec := range n.Specs {
-				switch s := spec.(type) {
-				case *ast.ValueSpec:
-					self.parseConsts(s, out)
-				}
-			}
 		case token.VAR:
-			for _, spec := range n.Specs {
-				switch s := spec.(type) {
-				case *ast.ValueSpec:
-					self.parseVar(s, out)
-				}
-			}
+			self.parseVars(n, out)
+		case token.CONST:
+			self.parseConsts(n, out)
 		case token.TYPE:
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
@@ -227,58 +223,83 @@ func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 	return
 }
 
+// parseImportSpec parses import spec into a map keyed by path.
 func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
-	var val = NewImport()
-	if in.Name != nil {
-		val.Name = self.printExpr(in.Name)
-	}
-	val.Path = self.printExpr(in.Path)
+	var val = NewImport(
+		self.printExpr(in.Name),
+		self.printExpr(in.Path),
+	)
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	out.Put(val.Path, val)
 	return
 }
 
-func (self *Bast) parseConsts(in *ast.ValueSpec, out *DeclarationMap) {
-	var lastType string
-	for i := 0; i < len(in.Names); i++ {
-		var val = NewConst()
-		val.Name = self.printExpr(in.Names[i])
-		self.parseCommentGroup(in.Doc, &val.Doc)
-		if in.Type != nil {
-			val.Type = self.printExpr(in.Type)
-			lastType = val.Type
-		} else if lastType != "" {
-			val.Type = lastType
+// parseVars parses a GenDecl in of vars into a DeclarationMap out.
+func (self *Bast) parseVars(in *ast.GenDecl, out *DeclarationMap) {
+
+	for _, spec := range in.Specs {
+
+		var vspec, ok = spec.(*ast.ValueSpec)
+		if !ok {
+			return
 		}
-		if in.Values != nil {
-			val.Value = self.printExpr(in.Values[i])
-		}
-		out.Put(val.Name, val)
-	}
-}
 
-func (self *Bast) parseVar(in *ast.ValueSpec, out *DeclarationMap) {
-	for i := 0; i < len(in.Names); i++ {
-		var val = NewVar()
-		val.Name = self.printExpr(in.Names[i])
-		self.parseCommentGroup(in.Doc, &val.Doc)
+		for i := 0; i < len(vspec.Names); i++ {
 
-		val.Type = self.printExpr(in.Type)
-		if in.Values != nil {
-			if len(in.Values) == 1 {
-				val.Value = self.printExpr(in.Values[0])
+			var val = NewVar(
+				self.printExpr(vspec.Names[i]),
+				self.printExpr(vspec.Type),
+			)
 
-			} else {
-				val.Value = self.printExpr(in.Values[i])
+			self.parseCommentGroup(in.Doc, &val.Doc)
+
+			if vspec.Values != nil {
+				if len(vspec.Values) == 1 {
+					val.Value = self.printExpr(vspec.Values[0])
+				} else {
+					val.Value = self.printExpr(vspec.Values[i])
+				}
 			}
+
+			out.Put(val.Name, val)
 		}
-		out.Put(val.Name, val)
 	}
 }
 
+// parseVars parses a GenDecl in of consts into a DeclarationMap out.
+func (self *Bast) parseConsts(in *ast.GenDecl, out *DeclarationMap) {
+	for _, spec := range in.Specs {
+
+		var vspec, ok = spec.(*ast.ValueSpec)
+		if !ok {
+			return
+		}
+
+		for i := 0; i < len(vspec.Names); i++ {
+
+			var val = NewConst(
+				self.printExpr(vspec.Names[i]),
+				self.printExpr(vspec.Type),
+			)
+
+			self.parseCommentGroup(in.Doc, &val.Doc)
+
+			if vspec.Values != nil {
+				if len(vspec.Values) == 1 {
+					val.Value = self.printExpr(vspec.Values[0])
+				} else {
+					val.Value = self.printExpr(vspec.Values[i])
+				}
+			}
+
+			out.Put(val.Name, val)
+		}
+	}
+}
+
+// parseFunc parses in func decl into DeclarationMap out.
 func (self *Bast) parseFunc(in *ast.FuncDecl, out *DeclarationMap) {
-	var val = NewFunc()
-	val.Name = self.printExpr(in.Name)
+	var val = NewFunc(self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
 	self.parseFieldList(in.Type.Params, val.Params)
@@ -286,10 +307,10 @@ func (self *Bast) parseFunc(in *ast.FuncDecl, out *DeclarationMap) {
 	out.Put(val.Name, val)
 }
 
+// parseMethod parses in method decl into DeclarationMap out.
 func (self *Bast) parseMethod(in *ast.FuncDecl, out *DeclarationMap) {
-	var val = NewMethod()
+	var val = NewMethod(self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
-	val.Name = self.printExpr(in.Name)
 
 	if in.Recv != nil {
 		val.Receiver = NewField()
@@ -306,32 +327,39 @@ func (self *Bast) parseMethod(in *ast.FuncDecl, out *DeclarationMap) {
 	return
 }
 
+// parseFuncType parses func type spec in into a DeclarationMap out.
+// Uses parent GenDecl g docs as doc source.
 func (self *Bast) parseFuncType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
-	var val = NewFunc()
+	var val = NewFunc(self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
-	val.Name = self.printExpr(in.Name)
 	var ft = in.Type.(*ast.FuncType)
-	self.parseFieldList(ft.TypeParams, val.TypeParams)
+	self.parseFieldList(in.TypeParams, val.TypeParams)
 	self.parseFieldList(ft.Params, val.Params)
 	self.parseFieldList(ft.Results, val.Results)
 	out.Put(val.Name, val)
 	return
 }
 
+// parseType parses type spec in into a DeclarationMap out.
+// Uses parent GenDecl g docs as doc source.
 func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
-	var val = NewType()
+	var val = NewType(
+		self.printExpr(in.Name),
+		self.printExpr(in.Type),
+	)
 	self.parseCommentGroup(g.Doc, &val.Doc)
-	val.Name = self.printExpr(in.Name)
-	val.Type = self.printExpr(in.Type)
 	val.IsAlias = in.Assign.IsValid()
 	out.Put(val.Name, val)
 	return
 }
 
+// parseFieldList parses in field list into FieldMap out.
 func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
+
 	if in == nil {
 		return
 	}
+
 	for idx, field := range in.List {
 		if field.Names == nil {
 			var key = fmt.Sprintf("%s [%d]", self.printExpr(field.Type), idx)
@@ -351,6 +379,8 @@ func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
 	}
 }
 
+// parseStruct parses an interface declaration in into DeclarationMap out.
+// Uses parent GenDecl g docs as doc source.
 func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var it, ok = in.Type.(*ast.InterfaceType)
@@ -371,9 +401,8 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *Declarat
 			intf.Unnamed = true
 			val.Interfaces.Put(intf.Type, intf)
 		} else {
-			var m = NewMethod()
+			var m = NewMethod(self.printExpr(method.Names[0]))
 			self.parseCommentGroup(method.Doc, &m.Doc)
-			m.Name = self.printExpr(method.Names[0])
 			var ft = method.Type.(*ast.FuncType)
 			self.parseFieldList(ft.TypeParams, m.TypeParams)
 			self.parseFieldList(ft.Params, m.Params)
@@ -387,14 +416,18 @@ func (self *Bast) parseInterface(g *ast.GenDecl, in *ast.TypeSpec, out *Declarat
 	return
 }
 
+// parseStruct parses a struct declaration in into DeclarationMap out.
+// Uses parent GenDecl g docs as doc source.
 func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+
 	var st, ok = in.Type.(*ast.StructType)
 	if !ok {
 		return
 	}
-	var val = NewStruct()
+
+	var val = NewStruct(self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
-	val.Name = self.printExpr(in.Name)
+
 	for _, field := range st.Fields.List {
 		self.parseStructField(field, val.Fields)
 	}
@@ -404,10 +437,12 @@ func (self *Bast) parseStruct(g *ast.GenDecl, in *ast.TypeSpec, out *Declaration
 	return
 }
 
+// parseStructField parses a struct field in into a FieldMap out.
 func (self *Bast) parseStructField(in *ast.Field, out *FieldMap) {
 
 	var val = NewField()
 
+	// Unnamed field.
 	if len(in.Names) == 0 {
 		self.parseCommentGroup(in.Doc, &val.Doc)
 		val.Unnamed = true
