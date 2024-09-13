@@ -17,7 +17,12 @@ import (
 )
 
 // Bast holds lists of top level declarations found in a set of parsed packages.
-// it is returned the by [Load] function.
+//
+// It is a reduced model of go source which parses out only top level
+// declarations and provides a simple model and interface for their easy
+// retrieval, enumeration and inspection.
+//
+// It is returned the by [Load] function.
 type Bast struct {
 	// packages maps bast Packages by their import path.
 	packages *PackageMap
@@ -42,9 +47,9 @@ func new() *Bast {
 type Package struct {
 	// Name is the package name, without path, as it appears in source code.
 	Name string
-	// Path is the package path as used by go compiler.
+	// Path is the package import path as used by go compiler.
 	Path string
-	// Files maps full path to parsed go source file
+	// Files maps definitions of parsed go files by their full path.
 	Files *FileMap
 	// pkg is the parsed package.
 	pkg *packages.Package
@@ -148,10 +153,12 @@ type Declaration interface {
 type DeclarationMap = maps.OrderedMap[string, Declaration]
 
 // Model is the bast model base. All declarations embed this model.
+//
+// Model implements [Declaration] interface].
 type Model struct {
-	// Doc is the import doc.
+	// Doc is the declaration doc comment.
 	Doc []string
-	// Name is the import name, possibly empty, "." or some custom name.
+	// Name is the declaration name.
 	Name string
 }
 
@@ -231,6 +238,8 @@ type Type struct {
 	Type string
 	// IsAlias is true if type is an alias of the type it derives from.
 	IsAlias bool
+	// TypeParams are type parameters.
+	TypeParams *FieldMap
 }
 
 // Struct contains info about a struct.
@@ -327,7 +336,8 @@ func NewType(name, typ string) *Type {
 		Model: Model{
 			Name: name,
 		},
-		Type: typ,
+		Type:       typ,
+		TypeParams: maps.MakeOrderedMap[string, *Field](),
 	}
 }
 

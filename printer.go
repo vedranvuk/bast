@@ -97,6 +97,12 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 						pl("\t\t", t.Doc)
 					}
 					p("\t\tType\t\"%s\"\t(%s)\n", t.Name, t.Type)
+					for _, tparam := range t.TypeParams.Values() {
+						if self.PrintDoc {
+							pl("\t\t\t", tparam.Doc)
+						}
+						p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name, tparam.Type)
+					}
 				}
 			}
 			if self.PrintFuncs {

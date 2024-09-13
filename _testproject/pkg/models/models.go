@@ -54,6 +54,9 @@ func TestFunc7[T any](in int) (out int) { return 0 }
 // CustomType is a custom type.
 type CustomType int
 
+// ParametrisedType is a custom type with type parameters.
+type ParametrisedType[K any] int
+
 // TestStruct is an empty struct.
 type TestStruct1 struct{}
 

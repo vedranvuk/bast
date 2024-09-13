@@ -348,6 +348,7 @@ func (self *Bast) parseType(g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMa
 		self.printExpr(in.Type),
 	)
 	self.parseCommentGroup(g.Doc, &val.Doc)
+	self.parseFieldList(in.TypeParams, val.TypeParams)
 	val.IsAlias = in.Assign.IsValid()
 	out.Put(val.Name, val)
 	return
