@@ -56,7 +56,6 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 			break
 		}
 	}
-
 	if o == nil {
 		switch tn := typeName; tn {
 		case "bool", "byte",
