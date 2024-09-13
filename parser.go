@@ -25,11 +25,11 @@ type Config struct {
 	// Package patterns given to [ParsePackages] are relative to this directory.
 	//
 	// Default is "." which sets the build dir to current directory.
-	Dir string
+	Dir string `json:"dir,omitempty"`
 
 	// BuildFlags is a list of command-line flags to be passed through to
 	// the build system's query tool.
-	BuildFlags []string
+	BuildFlags []string `json:"buildFlags,omitempty"`
 
 	// Env is the environment to use when invoking the build system's query tool.
 	// If Env is nil, the current environment is used.
@@ -39,7 +39,7 @@ type Config struct {
 	//
 	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
 	//
-	Env []string
+	Env []string `json:"env,omitempty"`
 
 	// If Tests is set, the loader includes not just the packages
 	// matching a particular pattern but also any related test packages,
@@ -53,7 +53,7 @@ type Config struct {
 	//
 	// In build systems with explicit names for tests,
 	// setting Tests may have no effect.
-	Tests bool
+	Tests bool `json:"tests,omitempty"`
 
 	// -- Bast configuration --
 
@@ -61,13 +61,13 @@ type Config struct {
 	// related utilities like [Bast.ResolveBasicType].
 	//
 	// Default: true
-	TypeChecking bool
+	TypeChecking bool `json:"typeChecking,omitempty"`
 
 	// HaltOnTypeCheckErrors if enabled returns an error if typehecking failed
 	// during package load.
 	//
 	// Default: true
-	HaltOnTypeCheckErrors bool
+	HaltOnTypeCheckErrors bool `json:"haltOnTypeCheckErrors,omitempty"`
 }
 
 // DefaultConfig returns the default configuration.
