@@ -10,6 +10,7 @@ import (
 	"go/ast"
 	"go/token"
 
+	"github.com/vedranvuk/strutils"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -227,8 +228,9 @@ func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 	var val = NewImport(
 		self.printExpr(in.Name),
-		self.printExpr(in.Path),
+		"",
 	)
+	val.Path, _ = strutils.UnquoteDouble(self.printExpr(in.Path))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	out.Put(val.Path, val)
 	return
