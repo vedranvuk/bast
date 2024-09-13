@@ -157,7 +157,7 @@ func (self *Model) GetDoc() []string { return self.Doc }
 // GetName returns declaration name.
 func (self *Model) GetName() string { return self.Name }
 
-// PackageImportBySelectorExpr returns an ImportSpec tat defines an import 
+// PackageImportBySelectorExpr returns an ImportSpec tat defines an import
 // reffered to by selectorExpr, e.g. "package.TypeName"
 // It returns nil if not found or selectorExpr is invalid.
 func (self *Model) PackageImportBySelectorExpr(selectorExpr string) *ImportSpec {
@@ -175,11 +175,11 @@ func (self *Model) PackageImportBySelectorExpr(selectorExpr string) *ImportSpec 
 		}
 
 		// Trim major version suffix if present.
-		var s, _ = strutils.UnquoteDouble(imp.Path) 
+		var s, _ = strutils.UnquoteDouble(imp.Path)
 		s = path.Base(s)
 		if strings.HasPrefix(s, "v") {
 			if _, err := strconv.Atoi(s[1:]); err == nil {
-				s = path.Base(imp.Path[:len(imp.Path) - len(s)+1])
+				s = path.Base(imp.Path[:len(imp.Path)-len(s)+1])
 			}
 		}
 
@@ -400,4 +400,11 @@ func NewStruct(file *File, name string) *Struct {
 }
 
 // NewField returns a new *Field.
-func NewField() *Field { return &Field{} }
+func NewField(file *File, name string) *Field {
+	return &Field{
+		Model: Model{
+			Name: name,
+			file: file,
+		},
+	}
+}

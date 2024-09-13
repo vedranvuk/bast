@@ -303,9 +303,9 @@ func (self *Bast) parseConsts(file *File, in *ast.GenDecl, out *DeclarationMap) 
 func (self *Bast) parseFunc(file *File, in *ast.FuncDecl, out *DeclarationMap) {
 	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
-	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
-	self.parseFieldList(in.Type.Params, val.Params)
-	self.parseFieldList(in.Type.Results, val.Results)
+	self.parseFieldList(file, in.Type.TypeParams, val.TypeParams)
+	self.parseFieldList(file, in.Type.Params, val.Params)
+	self.parseFieldList(file, in.Type.Results, val.Results)
 	out.Put(val.Name, val)
 }
 
@@ -315,16 +315,16 @@ func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap)
 	self.parseCommentGroup(in.Doc, &val.Doc)
 
 	if in.Recv != nil {
-		val.Receiver = NewField()
+		val.Receiver = NewField(file, "")
 		if len(in.Recv.List[0].Names) > 0 {
 			val.Receiver.Name = self.printExpr(in.Recv.List[0].Names[0])
 		}
 		val.Receiver.Type = self.printExpr(in.Recv.List[0].Type)
 	}
 
-	self.parseFieldList(in.Type.TypeParams, val.TypeParams)
-	self.parseFieldList(in.Type.Params, val.Params)
-	self.parseFieldList(in.Type.Results, val.Results)
+	self.parseFieldList(file, in.Type.TypeParams, val.TypeParams)
+	self.parseFieldList(file, in.Type.Params, val.Params)
+	self.parseFieldList(file, in.Type.Results, val.Results)
 	out.Put(val.Name, val)
 	return
 }
@@ -335,9 +335,9 @@ func (self *Bast) parseFuncType(file *File, g *ast.GenDecl, in *ast.TypeSpec, ou
 	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
 	var ft = in.Type.(*ast.FuncType)
-	self.parseFieldList(in.TypeParams, val.TypeParams)
-	self.parseFieldList(ft.Params, val.Params)
-	self.parseFieldList(ft.Results, val.Results)
+	self.parseFieldList(file, in.TypeParams, val.TypeParams)
+	self.parseFieldList(file, ft.Params, val.Params)
+	self.parseFieldList(file, ft.Results, val.Results)
 	out.Put(val.Name, val)
 	return
 }
@@ -351,14 +351,14 @@ func (self *Bast) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *D
 		self.printExpr(in.Type),
 	)
 	self.parseCommentGroup(g.Doc, &val.Doc)
-	self.parseFieldList(in.TypeParams, val.TypeParams)
+	self.parseFieldList(file, in.TypeParams, val.TypeParams)
 	val.IsAlias = in.Assign.IsValid()
 	out.Put(val.Name, val)
 	return
 }
 
 // parseFieldList parses in field list into FieldMap out.
-func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
+func (self *Bast) parseFieldList(file *File, in *ast.FieldList, out *FieldMap) {
 
 	if in == nil {
 		return
@@ -373,9 +373,8 @@ func (self *Bast) parseFieldList(in *ast.FieldList, out *FieldMap) {
 			continue
 		}
 		for _, name := range field.Names {
-			var val = NewField()
+			var val = NewField(file, self.printExpr(name))
 			self.parseCommentGroup(field.Doc, &val.Doc)
-			val.Name = self.printExpr(name)
 			val.Type = self.printExpr(field.Type)
 			val.Tag = self.printExpr(field.Tag)
 			out.Put(val.Name, val)
@@ -397,19 +396,18 @@ func (self *Bast) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, o
 
 	for _, method := range it.Methods.List {
 		if len(method.Names) == 0 {
-			var intf = NewField()
+			var intf = NewField(file, self.printExpr(method.Type))
 			self.parseCommentGroup(method.Doc, &intf.Doc)
 			intf.Type = self.printExpr(method.Type)
-			intf.Name = intf.Type
 			intf.Unnamed = true
 			val.Interfaces.Put(intf.Type, intf)
 		} else {
 			var m = NewMethod(file, self.printExpr(method.Names[0]))
 			self.parseCommentGroup(method.Doc, &m.Doc)
 			var ft = method.Type.(*ast.FuncType)
-			self.parseFieldList(ft.TypeParams, m.TypeParams)
-			self.parseFieldList(ft.Params, m.Params)
-			self.parseFieldList(ft.Results, m.Results)
+			self.parseFieldList(file, ft.TypeParams, m.TypeParams)
+			self.parseFieldList(file, ft.Params, m.Params)
+			self.parseFieldList(file, ft.Results, m.Results)
 			val.Methods.Put(m.Name, m)
 		}
 	}
@@ -432,7 +430,7 @@ func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out 
 	self.parseCommentGroup(g.Doc, &val.Doc)
 
 	for _, field := range st.Fields.List {
-		self.parseStructField(field, val.Fields)
+		self.parseStructField(file, field, val.Fields)
 	}
 
 	out.Put(val.Name, val)
@@ -441,9 +439,9 @@ func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out 
 }
 
 // parseStructField parses a struct field in into a FieldMap out.
-func (self *Bast) parseStructField(in *ast.Field, out *FieldMap) {
+func (self *Bast) parseStructField(file *File, in *ast.Field, out *FieldMap) {
 
-	var val = NewField()
+	var val = NewField(file, "")
 
 	// Unnamed field.
 	if len(in.Names) == 0 {
