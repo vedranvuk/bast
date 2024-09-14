@@ -134,6 +134,10 @@ type Declaration interface {
 	GetDoc() []string
 	// GetName returns the Declaration name.
 	GetName() string
+	// GetFile returns the declarations parent file.
+	GetFile() *File
+	// GetPackage returns the declarations parent package.
+	GetPackage() *Package
 }
 
 // DeclarationMap maps declarations by their name in parse order.
@@ -156,6 +160,12 @@ func (self *Model) GetDoc() []string { return self.Doc }
 
 // GetName returns declaration name.
 func (self *Model) GetName() string { return self.Name }
+
+// GetFile returns the declarations parent file.
+func (self *Model) GetFile() *File { return self.file }
+
+// GetPackage returns the declarations parent package.
+func (self *Model) GetPackage() *Package { return self.file.pkg }
 
 // PackageImportBySelectorExpr returns an ImportSpec tat defines an import
 // reffered to by selectorExpr, e.g. "package.TypeName"
