@@ -2,6 +2,8 @@ github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c h1:kLK2HmClCCwlJXhfB1
 github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
 github.com/vedranvuk/strutils v0.0.0-20240914122838-493321e2ff81 h1:wMH4ikB64Ci4sTSZQT+S1Oe9QbFvLI1jEAIXaf+5e14=
 github.com/vedranvuk/strutils v0.0.0-20240914122838-493321e2ff81/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
+github.com/vedranvuk/strutils v0.0.0-20240914145607-0a6964499d0b h1:I6xQv4vytmjvZ202PjAx4J3oTGNtL3632EZaRjc2icQ=
+github.com/vedranvuk/strutils v0.0.0-20240914145607-0a6964499d0b/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
 golang.org/x/mod v0.21.0 h1:vvrHzRwRfVKSiLrG+d4FMl/Qi4ukBCE6kZlTUkDYRT0=
 golang.org/x/mod v0.21.0/go.mod h1:6SkKJ3Xj0I0BrPOZoBy3bdMptDDU9oJrpohJ3eWZ1fY=
 golang.org/x/sync v0.8.0 h1:3NFvSEYkUoMifnESzZl15y791HH1qU2xm6eCJU5ZPXQ=

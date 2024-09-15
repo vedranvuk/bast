@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c
-	github.com/vedranvuk/strutils v0.0.0-20240914122838-493321e2ff81
+	github.com/vedranvuk/strutils v0.0.0-20240914145607-0a6964499d0b
 	golang.org/x/tools v0.25.0
 )
 
