@@ -95,8 +95,8 @@ func (self *Bast) ConstsOfType(pkgPath, typeName string) (out []*Const) {
 
 // TypesOfType returns all top level type declarations from a package named
 // pkgPath whose type name equals typeName.
-func (self *Bast) TypesOfType(pkgPath, typeName string) (out []*Const) {
-	return pkgTypeDecl[*Const](pkgPath, typeName, self.packages)
+func (self *Bast) TypesOfType(pkgPath, typeName string) (out []*Type) {
+	return pkgTypeDecl[*Type](pkgPath, typeName, self.packages)
 }
 
 // MethodSet returns all methods from a package named pkgPath whose receiver
