@@ -167,10 +167,12 @@ func (self *Model) GetFile() *File { return self.file }
 // GetPackage returns the declarations parent package.
 func (self *Model) GetPackage() *Package { return self.file.pkg }
 
-// PackageImportBySelectorExpr returns an ImportSpec tat defines an import
-// reffered to by selectorExpr, e.g. "package.TypeName"
+// ImportSpecBySelectorExpr returns an ImportSpec whose path is the path of a 
+// package from which a type qualified by selectorExpr is imported into
+// go file being parsed. I.e.: "package.TypeName".
+//
 // It returns nil if not found or selectorExpr is invalid.
-func (self *Model) PackageImportBySelectorExpr(selectorExpr string) *ImportSpec {
+func (self *Model) ImportSpecBySelectorExpr(selectorExpr string) *ImportSpec {
 
 	var pkg, sel, ok = strings.Cut(selectorExpr, ".")
 	if !ok || pkg == "" || sel == "" {

@@ -181,37 +181,37 @@ func (self *Bast) AnyInterface(declName string) (out *Interface) {
 	return anyDecl[*Interface](declName, self.packages)
 }
 
-// PkgVar returns a variable whose Name==declName from a package named pkgPath.
+// PkgVar returns a variable whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgVar(pkgPath, declName string) (out *Var) {
 	return pkgDecl[*Var](pkgPath, declName, self.packages)
 }
 
-// PkgConst returns a const whose Name==declName from a package named pkgPath.
+// PkgConst returns a const whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgConst(pkgPath, declName string) (out *Const) {
 	return pkgDecl[*Const](pkgPath, declName, self.packages)
 }
 
-// PkgFunc returns a func whose Name==declName from a package named pkgPath.
+// PkgFunc returns a func whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgFunc(pkgPath, declName string) (out *Func) {
 	return pkgDecl[*Func](pkgPath, declName, self.packages)
 }
 
-// PkgMethod returns a method whose Name==declName from a package named pkgPath.
+// PkgMethod returns a method whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgMethod(pkgPath, declName string) (out *Method) {
 	return pkgDecl[*Method](pkgPath, declName, self.packages)
 }
 
-// PkgType returns a type whose Name==declName from a package named pkgPath.
+// PkgType returns a type whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgType(pkgPath, declName string) (out *Type) {
 	return pkgDecl[*Type](pkgPath, declName, self.packages)
 }
 
-// PkgStruct returns a struct whose Name==declName from a package named pkgPath.
+// PkgStruct returns a struct whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgStruct(pkgPath, declName string) (out *Struct) {
 	return pkgDecl[*Struct](pkgPath, declName, self.packages)
 }
 
-// PkgInterface returns an interface whose Name==declName from a package named pkgPath.
+// PkgInterface returns an interface whose Name==declName from a package with pkgPath.
 func (self *Bast) PkgInterface(pkgPath, declName string) (out *Interface) {
 	return pkgDecl[*Interface](pkgPath, declName, self.packages)
 }

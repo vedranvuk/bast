@@ -37,6 +37,6 @@ func TestImportSpecForTypeSelector(t *testing.T) {
 		t.Fatal(err)
 	}
 	var typ = bast.AnyType("PackageType")
-	var imp = typ.PackageImportBySelectorExpr(typ.Type)
+	var imp = typ.ImportSpecBySelectorExpr(typ.Type)
 	fmt.Println(imp.Path)
 }
