@@ -115,6 +115,13 @@ func (self *File) Struct(name string) (out *Struct) { return fileDecl[*Struct](n
 // Var returns a Interface declaration from File under name or nil if not found.
 func (self *File) Interface(name string) (out *Interface) { return fileDecl[*Interface](name, self) }
 
+// HasDecl returns true if a var, const, func or method declaration with name
+// or type, struct or interface with type name was found in this file.
+func (self *File) HasDecl(name string) (b bool) {
+	_, b = self.Declarations.Get(name)
+	return
+}
+
 // declarations is bast declarations typeset.
 type declarations interface {
 	*Var | *Const | *Func | *Method | *Type | *Struct | *Interface
