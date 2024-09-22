@@ -57,6 +57,22 @@ type Package struct {
 	pkg *packages.Package
 }
 
+// DeclFile returns the full filename of a file that contains the declaration
+// whose type equals typeName. If not found result is an empty string.
+func (self *Package) DeclFile(typeName string) string {
+	for _, file := range self.Files.Values() {
+		if _, ok := file.Declarations.Get(typeName); ok {
+			return file.FileName
+		}
+	}
+	return ""
+}
+
+// HasDecl returns true if declaration with typeName was found in this package.
+func (self *Package) HasDecl(typeName string) bool {
+	return self.DeclFile(typeName) != ""
+}
+
 // PackageMap maps packages by their import path.
 type PackageMap = maps.OrderedMap[string, *Package]
 
@@ -130,10 +146,6 @@ type ImportSpecMap = maps.OrderedMap[string, *ImportSpec]
 
 // Declaration represents a top level declaration in a Go file.
 type Declaration interface {
-	// GetDoc returns declaration doc comment.
-	GetDoc() []string
-	// GetName returns the Declaration name.
-	GetName() string
 	// GetFile returns the declarations parent file.
 	GetFile() *File
 	// GetPackage returns the declarations parent package.
@@ -155,19 +167,13 @@ type Model struct {
 	file *File
 }
 
-// GetDoc returns declarartion doc comment.
-func (self *Model) GetDoc() []string { return self.Doc }
-
-// GetName returns declaration name.
-func (self *Model) GetName() string { return self.Name }
-
 // GetFile returns the declarations parent file.
 func (self *Model) GetFile() *File { return self.file }
 
 // GetPackage returns the declarations parent package.
 func (self *Model) GetPackage() *Package { return self.file.pkg }
 
-// ImportSpecBySelectorExpr returns an ImportSpec whose path is the path of a 
+// ImportSpecBySelectorExpr returns an ImportSpec whose path is the path of a
 // package from which a type qualified by selectorExpr is imported into
 // go file being parsed. I.e.: "package.TypeName".
 //
