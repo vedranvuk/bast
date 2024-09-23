@@ -60,6 +60,9 @@ type ParametrisedType[K any] int
 // TestStruct is an empty struct.
 type TestStruct1 struct{}
 
+func (self TestStruct1) TestMethod1()  {}
+func (self *TestStruct1) TestMethod2() {}
+
 // TestStruct2 Ha sfields.
 type TestStruct2 struct {
 	// CustomType is an unnamed field of custom type.
@@ -83,8 +86,11 @@ type TestStruct3 struct {
 // TestStruct4 is a struct with a type parameter.
 type TestStruct4[T any] struct{}
 
-// TestMethod1 is a methd on TestStruct4 with a generic method.
-func (self *TestStruct4[T]) TestMethod1() (out int) { return 0 }
+// TestMethod1 is a method on TestStruct4 with a pointer receiver.
+func (self TestStruct4[T]) TestMethod3() (out int) { return 0 }
+
+// TestMethod1 is a methd on TestStruct4 with value receiver.
+func (self *TestStruct4[T]) TestMethod4() (out int) { return 0 }
 
 // Interface1 is an empty interface.
 type Interface1 interface{}

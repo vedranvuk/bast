@@ -9,6 +9,7 @@ package bast
 import (
 	"go/printer"
 	"go/token"
+	"go/types"
 	"path"
 	"strconv"
 	"strings"
@@ -53,6 +54,8 @@ type Package struct {
 	Path string
 	// Files maps definitions of parsed go files by their full path.
 	Files *FileMap
+	// bast is a reference to top level Bast struct.
+	bast *Bast
 	// pkg is the parsed package.
 	pkg *packages.Package
 }
@@ -62,7 +65,7 @@ type Package struct {
 func (self *Package) DeclFile(typeName string) string {
 	for _, file := range self.Files.Values() {
 		if _, ok := file.Declarations.Get(typeName); ok {
-			return file.FileName
+			return file.Name
 		}
 	}
 	return ""
@@ -82,10 +85,8 @@ type File struct {
 	Comments [][]string
 	// Doc is the file doc comment.
 	Doc []string
-	// Name is the File name, without path.
+	// Name is the File name, a full file path.
 	Name string
-	// FileName is the parsed go source file full path.
-	FileName string
 	// Imports is a list of file imports.
 	Imports *ImportSpecMap
 	// Declarations is a list of top level declarations in the file.
@@ -122,6 +123,27 @@ func (self *File) HasDecl(name string) (b bool) {
 	return
 }
 
+// ImportSpecFromSelector returns an import spec from a selectorExpr.
+// If import was not found or selectorExpr is invalid result is nil.
+func (self *File) ImportSpecFromSelector(selectorExpr string) *ImportSpec {
+	var pkg, _, selector = strings.Cut(selectorExpr, ".")
+	if !selector {
+		return nil
+	}
+	for _, imp := range self.Imports.Values() {
+		if imp.Name != "" {
+			if imp.Name == pkg {
+				return imp
+			}
+		} else {
+			if imp.Base() == pkg {
+				return imp
+			}
+		}
+	}
+	return nil
+}
+
 // declarations is bast declarations typeset.
 type declarations interface {
 	*Var | *Const | *Func | *Method | *Type | *Struct | *Interface
@@ -140,13 +162,16 @@ type FileMap = maps.OrderedMap[string, *File]
 
 // ImportSpec contains info about an Package or File import.
 type ImportSpec struct {
-	// Doc is the import doc.
+	// Doc is the import doc comment.
 	Doc []string
 	// Name is the import name, possibly empty, "." or some custom name.
 	Name string
 	// Path is the import path.
 	Path string
 }
+
+// Base returns the base name from the package path.
+func (self *ImportSpec) Base() string { return path.Base(self.Path) }
 
 // ImportSpecMap maps imports by their path in parse order.
 type ImportSpecMap = maps.OrderedMap[string, *ImportSpec]
@@ -162,14 +187,21 @@ type Declaration interface {
 // DeclarationMap maps declarations by their name in parse order.
 type DeclarationMap = maps.OrderedMap[string, Declaration]
 
-// Model is the bast model base. All declarations embed this model.
+// Model is the bast model base with fields shared by all declarations.
 //
 // Model implements [Declaration] interface].
 type Model struct {
+
 	// Doc is the declaration doc comment.
 	Doc []string
+
 	// Name is the declaration name.
+	//
+	// For [Struct], this will be the bare name of the struct type without type
+	// parameters. Type parameters are stored separately in a [Struct]
+	// definition.
 	Name string
+
 	// file is the file where the declaration is parsed from.
 	file *File
 }
@@ -218,6 +250,51 @@ func (self *Model) ImportSpecBySelectorExpr(selectorExpr string) *ImportSpec {
 	return nil
 }
 
+// ResolveBasicType returns the basic type name of a derived type typeName by
+// searching the type hierarchy of parsed packages.
+//
+// If typeName is already a name of a basic type it is returned as is.
+// If basic type was not found resolved returns an empty string.
+//
+// Requires [Config.TypeChecking].
+func (self *Model) ResolveBasicType(typeName string) string {
+	
+	var o types.Object
+	if _, name, selector := strings.Cut(typeName, "."); selector {
+		if imp := self.ImportSpecBySelectorExpr(typeName); imp != nil {
+			if pkg, ok := self.GetPackage().bast.packages.Get(imp.Path); ok {
+				o = pkg.pkg.Types.Scope().Lookup(name)
+			}
+		}
+	} else {
+		o = self.GetPackage().pkg.Types.Scope().Lookup(typeName)
+	}
+
+	if o == nil {
+		switch tn := typeName; tn {
+		case "bool", "byte",
+			"int", "int8", "int16", "int32", "int64",
+			"uint", "uint8", "uint16", "uint32", "uint64",
+			"complex64", "complex128", "string":
+			return tn
+		default:
+			return ""
+		}
+	}
+	var t types.Type = o.Type()
+	for {
+		if t.Underlying() == nil {
+			return t.String()
+		}
+		if t.Underlying() == t {
+			break
+		}
+		t = t.Underlying()
+	}
+
+	return t.String()
+}
+
 // Var contains info about a variable.
 //
 // If a variable was declared with implicit type, Type will be empty.
@@ -246,14 +323,26 @@ type Const struct {
 // Field contains info about a struct field, method receiver, or method or func
 // type params, params or results.
 type Field struct {
+
 	// Model is the declaration base.
 	Model
+
 	// Type is the field type.
+	//
+	// For [Struct] receivers, type will be the bare type name without star or
+	// type parameters. If it is a pointer receiver [Field.Pointer] will be
+	// true. Type parameters are ommited from the name and can be inspected in
+	// parent [Struct] definition.
 	Type string
+
 	// Tag is the field raw tag string.
 	Tag string
+
 	// Unnamed is true if field is unnamed and specifies the type only.
 	Unnamed bool
+
+	// Pointer is true if this field is a pointer method receiver.
+	Pointer bool
 }
 
 // FieldMap maps fields by their name in parse order.
@@ -304,6 +393,20 @@ type Struct struct {
 	Model
 	// Fields is a list of struct fields.
 	Fields *FieldMap
+	// TypeParams are type parameters.
+	TypeParams *FieldMap
+}
+
+// Methods returns a slice of methods defined on this struct.
+func (self *Struct) Methods() (out []*Method) {
+	for _, file := range self.GetPackage().Files.Values() {
+		for _, decl := range file.Declarations.Values() {
+			if m, ok := decl.(*Method); ok && m.Receiver.Name == self.Name {
+				out = append(out, m)
+			}
+		}
+	}
+	return
 }
 
 // Interface contains info about an interface.
@@ -329,10 +432,9 @@ func NewPackage(name, path string, pkg *packages.Package) *Package {
 }
 
 // NewFile returns a new *File.
-func NewFile(pkg *Package, name, fileName string) *File {
+func NewFile(pkg *Package, name string) *File {
 	return &File{
 		Name:         name,
-		FileName:     fileName,
 		Imports:      maps.MakeOrderedMap[string, *ImportSpec](),
 		Declarations: maps.MakeOrderedMap[string, Declaration](),
 		pkg:          pkg,
@@ -402,18 +504,6 @@ func NewType(file *File, name, typ string) *Type {
 	}
 }
 
-// NewInterface returns a new *Interface.
-func NewInterface(file *File, name string) *Interface {
-	return &Interface{
-		Model: Model{
-			Name: name,
-			file: file,
-		},
-		Methods:    maps.MakeOrderedMap[string, *Method](),
-		Interfaces: maps.MakeOrderedMap[string, *Field](),
-	}
-}
-
 // NewStruct returns a new *Struct.
 func NewStruct(file *File, name string) *Struct {
 	return &Struct{
@@ -421,7 +511,10 @@ func NewStruct(file *File, name string) *Struct {
 			Name: name,
 			file: file,
 		},
-		Fields: maps.MakeOrderedMap[string, *Field]()}
+		Fields:     maps.MakeOrderedMap[string, *Field](),
+		TypeParams: maps.MakeOrderedMap[string, *Field](),
+	}
+
 }
 
 // NewField returns a new *Field.
@@ -431,5 +524,17 @@ func NewField(file *File, name string) *Field {
 			Name: name,
 			file: file,
 		},
+	}
+}
+
+// NewInterface returns a new *Interface.
+func NewInterface(file *File, name string) *Interface {
+	return &Interface{
+		Model: Model{
+			Name: name,
+			file: file,
+		},
+		Methods:    maps.MakeOrderedMap[string, *Method](),
+		Interfaces: maps.MakeOrderedMap[string, *Field](),
 	}
 }

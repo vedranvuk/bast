@@ -51,9 +51,9 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 			if self.PrintDoc {
 				pl("\t", file.Doc)
 			}
-			p("\tFile\t\"%s\"\t(%s)\n", file.Name, file.FileName)
+			p("\tFile\t\"%s\"\n", file.Name)
 			if file.Imports.Len() > 0 {
-				p("\t\tImports\"\n")
+				p("\t\tImports\n")
 				for _, key := range file.Imports.Keys() {
 					var i, _ = file.Imports.Get(key)
 					p("\t\t\t\"%s\"\t(%s)\n", i.Name, i.Path)
@@ -150,6 +150,10 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 					if m.Receiver != nil {
 						if self.PrintDoc {
 							pl("\t\t\t", m.Receiver.Doc)
+						}
+						if m.Receiver.Pointer {
+							p("\t\t\tReceiver\t\"%s\"\t(*%s)\n", m.Receiver.Name, m.Receiver.Type)
+						} else {
 							p("\t\t\tReceiver\t\"%s\"\t(%s)\n", m.Receiver.Name, m.Receiver.Type)
 						}
 					}
@@ -189,6 +193,12 @@ func (self *Printer) Print(w io.Writer, bast *Bast) {
 							pl("\t\t\t", field.Doc)
 						}
 						p("\t\t\tField\t\"%s\"\t(%s)\t%s\n", field.Name, field.Type, field.Tag)
+					}
+					for _, tparam := range s.TypeParams.Values() {
+						if self.PrintDoc {
+							pl("\t\t\t", tparam.Doc)
+						}
+						p("\t\t\tType Param\t\"%s\"\t(%s)\n", tparam.Name, tparam.Type)
 					}
 				}
 			}

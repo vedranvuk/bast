@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"time"
 
 	"github.com/vedranvuk/strutils"
 	"golang.org/x/tools/go/packages"
@@ -133,6 +134,7 @@ func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 	for idx, file := range in.Syntax {
 		self.parseFile(pkg, in.CompiledGoFiles[idx], file, pkg.Files)
 	}
+	pkg.bast = self
 	out.Put(pkg.Path, pkg)
 	return
 }
@@ -141,7 +143,7 @@ func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
 // adds it to [FileMap], keyed by filename.
 func (self *Bast) parseFile(pkg *Package, fileName string, in *ast.File, out *FileMap) {
 
-	var file = NewFile(pkg, self.printExpr(in.Name), fileName)
+	var file = NewFile(pkg, fileName)
 
 	for _, comment := range in.Comments {
 		var cg []string
@@ -159,7 +161,7 @@ func (self *Bast) parseFile(pkg *Package, fileName string, in *ast.File, out *Fi
 		self.parseDeclaration(file, d.(ast.Node), file.Declarations)
 	}
 
-	out.Put(file.FileName, file)
+	out.Put(file.Name, file)
 
 	return
 }
@@ -177,9 +179,9 @@ func (self *Bast) parseDeclaration(file *File, in ast.Node, out *DeclarationMap)
 			for _, spec := range n.Specs {
 				switch s := spec.(type) {
 				case *ast.TypeSpec:
-					if s.Assign != token.NoPos {
-						continue
-					}
+					// if s.Assign != token.NoPos {
+					// 	continue
+					// }
 					switch s.Type.(type) {
 					case *ast.InterfaceType:
 						self.parseInterface(file, n, s, out)
@@ -255,6 +257,7 @@ func (self *Bast) parseVars(file *File, in *ast.GenDecl, out *DeclarationMap) {
 			)
 
 			self.parseCommentGroup(in.Doc, &val.Doc)
+			self.parseCommentGroup(vspec.Doc, &val.Doc)
 
 			if vspec.Values != nil {
 				if len(vspec.Values) == 1 {
@@ -287,6 +290,7 @@ func (self *Bast) parseConsts(file *File, in *ast.GenDecl, out *DeclarationMap) 
 			)
 
 			self.parseCommentGroup(in.Doc, &val.Doc)
+			self.parseCommentGroup(vspec.Doc, &val.Doc)
 
 			if vspec.Values != nil {
 				if len(vspec.Values) == 1 {
@@ -321,7 +325,24 @@ func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap)
 		if len(in.Recv.List[0].Names) > 0 {
 			val.Receiver.Name = self.printExpr(in.Recv.List[0].Names[0])
 		}
-		val.Receiver.Type = self.printExpr(in.Recv.List[0].Type)
+		// Parse out the bare receiver type name. Exclude star and type params.
+		switch t := in.Recv.List[0].Type.(type) {
+		case *ast.Ident:
+			val.Receiver.Type = t.Name
+		case *ast.IndexExpr:
+			val.Receiver.Type = self.printExpr(t.X)
+		case *ast.StarExpr:
+			if p, ok := t.X.(*ast.IndexExpr); ok {
+				val.Receiver.Type = self.printExpr(p.X)
+			} else {
+				val.Receiver.Type = self.printExpr(t.X)
+			}
+			val.Receiver.Pointer = true
+		default:
+			time.Sleep(1 * time.Millisecond)
+			_ = t
+		}
+		// val.Receiver.Type = self.printExpr(in.Recv.List[0].Type)
 	}
 
 	self.parseFieldList(file, in.Type.TypeParams, val.TypeParams)
@@ -353,6 +374,7 @@ func (self *Bast) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *D
 		self.printExpr(in.Type),
 	)
 	self.parseCommentGroup(g.Doc, &val.Doc)
+	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(file, in.TypeParams, val.TypeParams)
 	val.IsAlias = in.Assign.IsValid()
 	out.Put(val.Name, val)
@@ -382,6 +404,56 @@ func (self *Bast) parseFieldList(file *File, in *ast.FieldList, out *FieldMap) {
 			out.Put(val.Name, val)
 		}
 	}
+}
+
+// parseStruct parses a struct declaration in into DeclarationMap out.
+// Uses parent GenDecl g docs as doc source.
+func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+
+	var st, ok = in.Type.(*ast.StructType)
+	if !ok {
+		return
+	}
+
+	var val = NewStruct(file, self.printExpr(in.Name))
+	self.parseCommentGroup(g.Doc, &val.Doc)
+	self.parseCommentGroup(in.Doc, &val.Doc)
+
+	for _, field := range st.Fields.List {
+		self.parseStructField(file, field, val.Fields)
+	}
+
+	self.parseFieldList(file, in.TypeParams, val.TypeParams)
+
+	out.Put(val.Name, val)
+
+	return
+}
+
+// parseStructField parses a struct field in into a FieldMap out.
+func (self *Bast) parseStructField(file *File, in *ast.Field, out *FieldMap) {
+
+	var val = NewField(file, "")
+
+	// Unnamed field.
+	if len(in.Names) == 0 {
+		self.parseCommentGroup(in.Doc, &val.Doc)
+		val.Unnamed = true
+		val.Type = self.printExpr(in.Type)
+		val.Tag = self.printExpr(in.Tag)
+		out.Put(val.Name, val)
+		return
+	}
+
+	for _, name := range in.Names {
+		self.parseCommentGroup(in.Doc, &val.Doc)
+		val.Name = self.printExpr(name)
+		val.Type = self.printExpr(in.Type)
+		val.Tag = self.printExpr(in.Tag)
+		out.Put(val.Name, val)
+	}
+
+	return
 }
 
 // parseStruct parses an interface declaration in into DeclarationMap out.
@@ -415,53 +487,6 @@ func (self *Bast) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, o
 	}
 
 	out.Put(val.Name, val)
-
-	return
-}
-
-// parseStruct parses a struct declaration in into DeclarationMap out.
-// Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
-
-	var st, ok = in.Type.(*ast.StructType)
-	if !ok {
-		return
-	}
-
-	var val = NewStruct(file, self.printExpr(in.Name))
-	self.parseCommentGroup(g.Doc, &val.Doc)
-
-	for _, field := range st.Fields.List {
-		self.parseStructField(file, field, val.Fields)
-	}
-
-	out.Put(val.Name, val)
-
-	return
-}
-
-// parseStructField parses a struct field in into a FieldMap out.
-func (self *Bast) parseStructField(file *File, in *ast.Field, out *FieldMap) {
-
-	var val = NewField(file, "")
-
-	// Unnamed field.
-	if len(in.Names) == 0 {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-		val.Unnamed = true
-		val.Type = self.printExpr(in.Type)
-		val.Tag = self.printExpr(in.Tag)
-		out.Put(val.Name, val)
-		return
-	}
-
-	for _, name := range in.Names {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-		val.Name = self.printExpr(name)
-		val.Type = self.printExpr(in.Type)
-		val.Tag = self.printExpr(in.Tag)
-		out.Put(val.Name, val)
-	}
 
 	return
 }
