@@ -258,7 +258,7 @@ func (self *Model) ImportSpecBySelectorExpr(selectorExpr string) *ImportSpec {
 //
 // Requires [Config.TypeChecking].
 func (self *Model) ResolveBasicType(typeName string) string {
-	
+
 	var o types.Object
 	if _, name, selector := strings.Cut(typeName, "."); selector {
 		if imp := self.ImportSpecBySelectorExpr(typeName); imp != nil {
@@ -401,8 +401,10 @@ type Struct struct {
 func (self *Struct) Methods() (out []*Method) {
 	for _, file := range self.GetPackage().Files.Values() {
 		for _, decl := range file.Declarations.Values() {
-			if m, ok := decl.(*Method); ok && m.Receiver.Name == self.Name {
-				out = append(out, m)
+			if m, ok := decl.(*Method); ok {
+				if m.Receiver.Type == self.Name {
+					out = append(out, m)
+				}
 			}
 		}
 	}

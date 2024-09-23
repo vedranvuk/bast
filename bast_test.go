@@ -27,6 +27,11 @@ func TestBast(t *testing.T) {
 		"Underlying type of PackageType is: %s\n",
 		bast.ResolveBasicType("PackageType"),
 	)
+
+	fmt.Println("TestStruct4 methods:")
+	for _, m := range bast.AnyStruct("TestStruct4").Methods() {
+		fmt.Printf("\t%s\n", m.Name)
+	}
 }
 
 func TestImportSpecForTypeSelector(t *testing.T) {
