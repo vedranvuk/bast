@@ -65,19 +65,19 @@ type Config struct {
 	// Default: true
 	TypeChecking bool `json:"typeChecking,omitempty"`
 
-	// HaltOnTypeCheckErrors if enabled returns an error if typehecking failed
-	// during package load.
+	// TypeCheckingErrors if enabled will return errors during [Load] if
+	// typechecking or parsed packages failed.
 	//
 	// Default: true
-	HaltOnTypeCheckErrors bool `json:"haltOnTypeCheckErrors,omitempty"`
+	TypeCheckingErrors bool `json:"typeCheckingErrors,omitempty"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Dir:                   ".",
-		TypeChecking:          true,
-		HaltOnTypeCheckErrors: true,
+		Dir:                ".",
+		TypeChecking:       true,
+		TypeCheckingErrors: true,
 	}
 }
 
@@ -114,7 +114,7 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 	}
 
 	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 && config.HaltOnTypeCheckErrors {
+		if len(pkg.Errors) > 0 && config.TypeCheckingErrors {
 			var errs []error
 			for _, e := range pkg.Errors {
 				errs = append(errs, e)
