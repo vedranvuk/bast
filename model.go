@@ -46,6 +46,11 @@ func new() *Bast {
 	}
 }
 
+// declarations is bast declarations typeset.
+type declarations interface {
+	*Var | *Const | *Func | *Method | *Type | *Struct | *Interface
+}
+
 // Package contains info about a Go package.
 type Package struct {
 	// Name is the package name, without path, as it appears in source code.
@@ -58,6 +63,41 @@ type Package struct {
 	bast *Bast
 	// pkg is the parsed package.
 	pkg *packages.Package
+}
+
+// Var returns a Var declaration from File under name or nil if not found.
+func (self *Package) Var(name string) (out *Var) {
+	return pkgDecl[*Var](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Const declaration from File under name or nil if not found.
+func (self *Package) Const(name string) (out *Const) {
+	return pkgDecl[*Const](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Func declaration from File under name or nil if not found.
+func (self *Package) Func(name string) (out *Func) {
+	return pkgDecl[*Func](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Method declaration from File under name or nil if not found.
+func (self *Package) Method(name string) (out *Method) {
+	return pkgDecl[*Method](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Type declaration from File under name or nil if not found.
+func (self *Package) Type(name string) (out *Type) {
+	return pkgDecl[*Type](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Struct declaration from File under name or nil if not found.
+func (self *Package) Struct(name string) (out *Struct) {
+	return pkgDecl[*Struct](self.Path, name, self.bast.packages)
+}
+
+// Var returns a Interface declaration from File under name or nil if not found.
+func (self *Package) Interface(name string) (out *Interface) {
+	return pkgDecl[*Interface](self.Path, name, self.bast.packages)
 }
 
 // DeclFile returns the full filename of a file that contains the declaration
@@ -142,11 +182,6 @@ func (self *File) ImportSpecFromSelector(selectorExpr string) *ImportSpec {
 		}
 	}
 	return nil
-}
-
-// declarations is bast declarations typeset.
-type declarations interface {
-	*Var | *Const | *Func | *Method | *Type | *Struct | *Interface
 }
 
 // fileDecl returns a declaration named declName of model T from file.
