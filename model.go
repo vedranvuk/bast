@@ -235,6 +235,9 @@ type Model struct {
 	// For [Struct], this will be the bare name of the struct type without type
 	// parameters. Type parameters are stored separately in a [Struct]
 	// definition.
+	//
+	// If struct field is unnamed Name will be equal to Type. 
+	// [Field.Unnamed] will be set to true as well.
 	Name string
 
 	// file is the file where the declaration is parsed from.

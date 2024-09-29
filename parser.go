@@ -439,6 +439,7 @@ func (self *Bast) parseStructField(file *File, in *ast.Field, out *FieldMap) {
 	if len(in.Names) == 0 {
 		self.parseCommentGroup(in.Doc, &val.Doc)
 		val.Unnamed = true
+		val.Name = self.printExpr(in.Type)
 		val.Type = self.printExpr(in.Type)
 		val.Tag = self.printExpr(in.Tag)
 		out.Put(val.Name, val)
