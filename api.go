@@ -63,6 +63,8 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 			"uint", "uint8", "uint16", "uint32", "uint64",
 			"complex64", "complex128", "string":
 			return tn
+		case "[]string":
+			return tn
 		default:
 			return ""
 		}
