@@ -1,5 +1,7 @@
 github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c h1:kLK2HmClCCwlJXhfB1OzK8GZasOf+yJRrX0k2Dbh5iw=
 github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
+github.com/vedranvuk/ds v0.0.0-20240930133828-52d795fc7747 h1:5IGjIsTw9HyvcZYJWRFEQkHM2dtVeVxeSmXPWS4jQvQ=
+github.com/vedranvuk/ds v0.0.0-20240930133828-52d795fc7747/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
 github.com/vedranvuk/strutils v0.0.0-20240914122838-493321e2ff81 h1:wMH4ikB64Ci4sTSZQT+S1Oe9QbFvLI1jEAIXaf+5e14=
 github.com/vedranvuk/strutils v0.0.0-20240914122838-493321e2ff81/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
 github.com/vedranvuk/strutils v0.0.0-20240914145607-0a6964499d0b h1:I6xQv4vytmjvZ202PjAx4J3oTGNtL3632EZaRjc2icQ=

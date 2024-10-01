@@ -3,7 +3,7 @@ module github.com/vedranvuk/bast
 go 1.22.5
 
 require (
-	github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c
+	github.com/vedranvuk/ds v0.0.0-20240930133828-52d795fc7747
 	github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040
 	golang.org/x/tools v0.25.0
 )
