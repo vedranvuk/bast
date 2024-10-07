@@ -32,8 +32,8 @@ func (self *Bast) Packages() []*Package { return self.packages.Values() }
 // PackageImportPaths returns package paths of all loaded packages.
 func (self *Bast) PackageImportPaths() []string { return self.packages.Keys() }
 
-// PkgByImportPath returns a package by its import path or nil if not found.
-func (self *Bast) PkgByImportPath(pkgPath string) (p *Package) {
+// PackageByPath returns a package by its import path or nil if not found.
+func (self *Bast) PackageByPath(pkgPath string) (p *Package) {
 	var exists bool
 	if p, exists = self.packages.Get(pkgPath); !exists {
 		return nil
