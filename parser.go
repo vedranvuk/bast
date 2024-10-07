@@ -81,6 +81,9 @@ func DefaultConfig() *Config {
 	}
 }
 
+// Default is an alias for [DefaultConfig].
+func Default() *Config { return DefaultConfig() }
+
 // Load loads packages specified by pattern and returns a *Bast of it
 // or an error.
 //
