@@ -36,7 +36,7 @@ func new() *Bast {
 	return &Bast{
 		fset:     token.NewFileSet(),
 		p:        &printer.Config{Tabwidth: 8},
-		packages: maps.MakeOrderedMap[string, *Package](),
+		packages: maps.NewOrderedMap[string, *Package](),
 	}
 }
 
@@ -461,7 +461,7 @@ func NewPackage(name, path string, pkg *packages.Package) *Package {
 	return &Package{
 		Name:  name,
 		Path:  path,
-		Files: maps.MakeOrderedMap[string, *File](),
+		Files: maps.NewOrderedMap[string, *File](),
 		pkg:   pkg,
 	}
 }
@@ -470,8 +470,8 @@ func NewPackage(name, path string, pkg *packages.Package) *Package {
 func NewFile(pkg *Package, name string) *File {
 	return &File{
 		Name:         name,
-		Imports:      maps.MakeOrderedMap[string, *ImportSpec](),
-		Declarations: maps.MakeOrderedMap[string, Declaration](),
+		Imports:      maps.NewOrderedMap[string, *ImportSpec](),
+		Declarations: maps.NewOrderedMap[string, Declaration](),
 		pkg:          pkg,
 	}
 }
@@ -491,9 +491,9 @@ func NewFunc(file *File, name string) *Func {
 			Name: name,
 			file: file,
 		},
-		TypeParams: maps.MakeOrderedMap[string, *Field](),
-		Params:     maps.MakeOrderedMap[string, *Field](),
-		Results:    maps.MakeOrderedMap[string, *Field](),
+		TypeParams: maps.NewOrderedMap[string, *Field](),
+		Params:     maps.NewOrderedMap[string, *Field](),
+		Results:    maps.NewOrderedMap[string, *Field](),
 	}
 }
 
@@ -535,7 +535,7 @@ func NewType(file *File, name, typ string) *Type {
 			file: file,
 		},
 		Type:       typ,
-		TypeParams: maps.MakeOrderedMap[string, *Field](),
+		TypeParams: maps.NewOrderedMap[string, *Field](),
 	}
 }
 
@@ -546,8 +546,8 @@ func NewStruct(file *File, name string) *Struct {
 			Name: name,
 			file: file,
 		},
-		Fields:     maps.MakeOrderedMap[string, *Field](),
-		TypeParams: maps.MakeOrderedMap[string, *Field](),
+		Fields:     maps.NewOrderedMap[string, *Field](),
+		TypeParams: maps.NewOrderedMap[string, *Field](),
 	}
 
 }
@@ -569,9 +569,9 @@ func NewInterface(file *File, name string) *Interface {
 			Name: name,
 			file: file,
 		},
-		Methods:    maps.MakeOrderedMap[string, *Method](),
-		Interfaces: maps.MakeOrderedMap[string, *Interface](),
-		TypeParams: maps.MakeOrderedMap[string, *Field](),
+		Methods:    maps.NewOrderedMap[string, *Method](),
+		Interfaces: maps.NewOrderedMap[string, *Interface](),
+		TypeParams: maps.NewOrderedMap[string, *Field](),
 	}
 }
 

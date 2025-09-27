@@ -1,7 +1,5 @@
-github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
-github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/vedranvuk/ds v0.0.0-20241001221038-c202ca7d4f2e h1:IOrHk5rtDnrmoiOJN2rFd4/3xGcF5jfHdD9OCOsZWuw=
-github.com/vedranvuk/ds v0.0.0-20241001221038-c202ca7d4f2e/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
+github.com/vedranvuk/ds v0.0.0-20250927220916-2cdf4026c4f8 h1:LbbyZvrnbvqRGuii2MXKoR5VUNzJyYvay43Ggffg4yE=
+github.com/vedranvuk/ds v0.0.0-20250927220916-2cdf4026c4f8/go.mod h1:tK0+wc3WLVkXKnqMwIGVuxcbL9gIwmNyynR42dCJk9c=
 github.com/vedranvuk/strutils v0.0.0-20250316115918-2e3aed4d102c h1:61WwXOSk9ehuGlabQx/2csRgvIqra9DZkGpsFPs6w+A=
 github.com/vedranvuk/strutils v0.0.0-20250316115918-2e3aed4d102c/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
 golang.org/x/mod v0.28.0 h1:gQBtGhjxykdjY9YhZpSlZIsbnaE2+PgjfLWUQTnoZ1U=
