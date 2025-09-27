@@ -5,11 +5,13 @@
 package bast
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
-	"time"
+	"reflect"
 
 	"github.com/vedranvuk/strutils"
 	"golang.org/x/tools/go/packages"
@@ -91,9 +93,8 @@ func Default() *Config { return DefaultConfig() }
 // and other details. See [Config].
 func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 
-	bast = new()
-	if bast.config = config; bast.config == nil {
-		bast.config = DefaultConfig()
+	if config == nil {
+		config = DefaultConfig()
 	}
 
 	var mode = packages.NeedSyntax | packages.NeedCompiledGoFiles | packages.NeedName
@@ -104,47 +105,77 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 	var (
 		cfg = &packages.Config{
 			Mode:       mode,
-			Dir:        bast.config.Dir,
-			BuildFlags: bast.config.BuildFlags,
-			Env:        bast.config.Env,
-			Tests:      bast.config.Tests,
+			Dir:        config.Dir,
+			BuildFlags: config.BuildFlags,
+			Env:        config.Env,
+			Tests:      config.Tests,
 		}
 		pkgs []*packages.Package
 	)
 
 	if pkgs, err = packages.Load(cfg, patterns...); err != nil {
-		return nil, fmt.Errorf("load packages: %w", err)
+		return nil, fmt.Errorf("failed to load packages: %w", err)
 	}
+
+	return NewParser(config).Parse(pkgs)
+}
+
+// Parser transforms go/packages into the bast model.
+type Parser struct {
+	config *Config
+	fset   *token.FileSet
+	p      *printer.Config
+}
+
+// NewParser returns a new Parser.
+func NewParser(config *Config) *Parser {
+	var p = &Parser{
+		config: config,
+		fset:   token.NewFileSet(),
+	}
+	p.p = &printer.Config{Mode: printer.RawFormat, Tabwidth: 8}
+	return p
+}
+
+// Parse is the main entry point for the parser.
+func (self *Parser) Parse(pkgs []*packages.Package) (*Bast, error) {
+	var bast = new()
+	bast.config = self.config
+	bast.fset = self.fset
 
 	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 && config.TypeCheckingErrors {
-			var errs []error
-			for _, e := range pkg.Errors {
-				errs = append(errs, e)
+		if len(pkg.Errors) > 0 && self.config.TypeCheckingErrors {
+			var errs = make([]error, 0, len(pkg.Errors))
+			for _, err := range pkg.Errors {
+				errs = append(errs, err)
 			}
-			return nil, fmt.Errorf("parse packages: %w", errors.Join(errs...))
+			return nil, errors.Join(errs...)
 		}
-		bast.parsePackage(pkg, bast.packages)
+		bastPkg, err := self.parsePackage(pkg)
+		if err != nil {
+			return nil, err
+		}
+		bastPkg.bast = bast
+		bast.packages.Put(bastPkg.Path, bastPkg)
 	}
-
-	return
+	return bast, nil
 }
 
 // parsePackage parses a package into a bast package, adds it to PackageMap
 // keying it by its package path.
-func (self *Bast) parsePackage(in *packages.Package, out *PackageMap) {
+func (self *Parser) parsePackage(in *packages.Package) (*Package, error) {
 	var pkg = NewPackage(in.Name, in.PkgPath, in)
 	for idx, file := range in.Syntax {
-		self.parseFile(pkg, in.CompiledGoFiles[idx], file, pkg.Files)
+		if err := self.parseFile(pkg, in.CompiledGoFiles[idx], file, pkg.Files); err != nil {
+			return nil, err
+		}
 	}
-	pkg.bast = self
-	out.Put(pkg.Path, pkg)
-	return
+	return pkg, nil
 }
 
 // parseFile parses an ast file parsed from fileName into a bast [File] and
 // adds it to [FileMap], keyed by filename.
-func (self *Bast) parseFile(pkg *Package, fileName string, in *ast.File, out *FileMap) {
+func (self *Parser) parseFile(pkg *Package, fileName string, in *ast.File, out *FileMap) error {
 
 	var file = NewFile(pkg, fileName)
 
@@ -166,11 +197,11 @@ func (self *Bast) parseFile(pkg *Package, fileName string, in *ast.File, out *Fi
 
 	out.Put(file.Name, file)
 
-	return
+	return nil
 }
 
 // parseDeclaration parses in node into a DeclarationMap out.
-func (self *Bast) parseDeclaration(file *File, in ast.Node, out *DeclarationMap) {
+func (self *Parser) parseDeclaration(file *File, in ast.Node, out *DeclarationMap) {
 	switch n := in.(type) {
 	case *ast.GenDecl:
 		switch n.Tok {
@@ -180,31 +211,19 @@ func (self *Bast) parseDeclaration(file *File, in ast.Node, out *DeclarationMap)
 			self.parseConsts(file, n, out)
 		case token.TYPE:
 			for _, spec := range n.Specs {
-				switch s := spec.(type) {
-				case *ast.TypeSpec:
-					// if s.Assign != token.NoPos {
-					// 	continue
-					// }
-					switch s.Type.(type) {
-					case *ast.InterfaceType:
-						self.parseInterface(file, n, s, out)
-					case *ast.StructType:
-						self.parseStruct(file, n, s, out)
-					case *ast.ArrayType:
-						self.parseType(file, n, s, out)
-					case *ast.FuncType:
-						self.parseFuncType(file, n, s, out)
-					case *ast.Ident:
-						self.parseType(file, n, s, out)
-					case *ast.ChanType:
-						self.parseType(file, n, s, out)
-					case *ast.MapType:
-						self.parseType(file, n, s, out)
-					case *ast.SelectorExpr:
-						self.parseType(file, n, s, out)
-					default:
-						fmt.Println(self.printExpr(s))
-					}
+				var tspec, ok = spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				switch tspec.Type.(type) {
+				case *ast.StructType:
+					self.parseStruct(file, n, tspec, out)
+				case *ast.InterfaceType:
+					self.parseInterface(file, n, tspec, out)
+				case *ast.FuncType:
+					self.parseFuncType(file, n, tspec, out)
+				default:
+					self.parseType(file, n, tspec, out)
 				}
 			}
 		}
@@ -215,22 +234,20 @@ func (self *Bast) parseDeclaration(file *File, in ast.Node, out *DeclarationMap)
 			self.parseFunc(file, n, out)
 		}
 	}
-	return
 }
 
 // parseCommentGroup a comment group into a string slice, line per entry.
-func (self *Bast) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
+func (self *Parser) parseCommentGroup(in *ast.CommentGroup, out *[]string) {
 	if in == nil {
 		return
 	}
 	for _, entry := range in.List {
 		*out = append(*out, entry.Text)
 	}
-	return
 }
 
 // parseImportSpec parses import spec into a map keyed by path.
-func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
+func (self *Parser) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 	var val = NewImport(
 		self.printExpr(in.Name),
 		"",
@@ -238,78 +255,57 @@ func (self *Bast) parseImportSpec(in *ast.ImportSpec, out *ImportSpecMap) {
 	val.Path, _ = strutils.UnquoteDouble(self.printExpr(in.Path))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	out.Put(val.Path, val)
-	return
 }
 
 // parseVars parses a GenDecl in of vars into a DeclarationMap out.
-func (self *Bast) parseVars(file *File, in *ast.GenDecl, out *DeclarationMap) {
+func (self *Parser) parseVars(file *File, in *ast.GenDecl, out *DeclarationMap) {
 
 	for _, spec := range in.Specs {
 
 		var vspec, ok = spec.(*ast.ValueSpec)
 		if !ok {
-			return
+			continue
 		}
 
 		for i := 0; i < len(vspec.Names); i++ {
-
-			var val = NewVar(
-				file,
-				self.printExpr(vspec.Names[i]),
-				self.printExpr(vspec.Type),
-			)
-
-			self.parseCommentGroup(in.Doc, &val.Doc)
+			var val = NewVar(file, self.printExpr(vspec.Names[i]), "")
 			self.parseCommentGroup(vspec.Doc, &val.Doc)
-
-			if vspec.Values != nil {
-				if len(vspec.Values) == 1 {
-					val.Value = self.printExpr(vspec.Values[0])
-				} else {
-					val.Value = self.printExpr(vspec.Values[i])
-				}
+			if vspec.Type != nil {
+				val.Type = self.printExpr(vspec.Type)
 			}
-
+			if len(vspec.Values) > 0 && i < len(vspec.Values) {
+				val.Value = self.printExpr(vspec.Values[i])
+			}
 			out.Put(val.Name, val)
 		}
 	}
 }
 
 // parseVars parses a GenDecl in of consts into a DeclarationMap out.
-func (self *Bast) parseConsts(file *File, in *ast.GenDecl, out *DeclarationMap) {
+func (self *Parser) parseConsts(file *File, in *ast.GenDecl, out *DeclarationMap) {
 	for _, spec := range in.Specs {
 
 		var vspec, ok = spec.(*ast.ValueSpec)
 		if !ok {
-			return
+			continue
 		}
 
 		for i := 0; i < len(vspec.Names); i++ {
-
-			var val = NewConst(
-				file,
-				self.printExpr(vspec.Names[i]),
-				self.printExpr(vspec.Type),
-			)
-
-			self.parseCommentGroup(in.Doc, &val.Doc)
+			var val = NewConst(file, self.printExpr(vspec.Names[i]), "")
 			self.parseCommentGroup(vspec.Doc, &val.Doc)
-
-			if vspec.Values != nil {
-				if len(vspec.Values) == 1 {
-					val.Value = self.printExpr(vspec.Values[0])
-				} else {
-					val.Value = self.printExpr(vspec.Values[i])
-				}
+			if vspec.Type != nil {
+				val.Type = self.printExpr(vspec.Type)
 			}
-
+			if len(vspec.Values) > 0 && i < len(vspec.Values) {
+				val.Value = self.printExpr(vspec.Values[i])
+			}
 			out.Put(val.Name, val)
 		}
 	}
 }
 
 // parseFunc parses in func decl into DeclarationMap out.
-func (self *Bast) parseFunc(file *File, in *ast.FuncDecl, out *DeclarationMap) {
+func (self *Parser) parseFunc(file *File, in *ast.FuncDecl, out *DeclarationMap) {
 	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 	self.parseFieldList(file, in.Type.TypeParams, val.TypeParams)
@@ -319,7 +315,7 @@ func (self *Bast) parseFunc(file *File, in *ast.FuncDecl, out *DeclarationMap) {
 }
 
 // parseMethod parses in method decl into DeclarationMap out.
-func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap) {
+func (self *Parser) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap) {
 	var val = NewMethod(file, self.printExpr(in.Name))
 	self.parseCommentGroup(in.Doc, &val.Doc)
 
@@ -329,22 +325,18 @@ func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap)
 			val.Receiver.Name = self.printExpr(in.Recv.List[0].Names[0])
 		}
 		// Parse out the bare receiver type name. Exclude star and type params.
-		switch t := in.Recv.List[0].Type.(type) {
-		case *ast.Ident:
-			val.Receiver.Type = t.Name
-		case *ast.IndexExpr:
-			val.Receiver.Type = self.printExpr(t.X)
-		case *ast.StarExpr:
-			if p, ok := t.X.(*ast.IndexExpr); ok {
-				val.Receiver.Type = self.printExpr(p.X)
-			} else {
-				val.Receiver.Type = self.printExpr(t.X)
-			}
+		var expr = in.Recv.List[0].Type
+		if star, ok := expr.(*ast.StarExpr); ok {
 			val.Receiver.Pointer = true
-		default:
-			time.Sleep(1 * time.Millisecond)
-			_ = t
+			expr = star.X
 		}
+		if index, ok := expr.(*ast.IndexExpr); ok {
+			expr = index.X
+		}
+		if index, ok := expr.(*ast.IndexListExpr); ok {
+			expr = index.X
+		}
+		val.Receiver.Type = self.printExpr(expr)
 		// val.Receiver.Type = self.printExpr(in.Recv.List[0].Type)
 	}
 
@@ -352,12 +344,11 @@ func (self *Bast) parseMethod(file *File, in *ast.FuncDecl, out *DeclarationMap)
 	self.parseFieldList(file, in.Type.Params, val.Params)
 	self.parseFieldList(file, in.Type.Results, val.Results)
 	out.Put(val.Name, val)
-	return
 }
 
 // parseFuncType parses func type spec in into a DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseFuncType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Parser) parseFuncType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var val = NewFunc(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
 	var ft = in.Type.(*ast.FuncType)
@@ -365,12 +356,11 @@ func (self *Bast) parseFuncType(file *File, g *ast.GenDecl, in *ast.TypeSpec, ou
 	self.parseFieldList(file, ft.Params, val.Params)
 	self.parseFieldList(file, ft.Results, val.Results)
 	out.Put(val.Name, val)
-	return
 }
 
 // parseType parses type spec in into a DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Parser) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 	var val = NewType(
 		file,
 		self.printExpr(in.Name),
@@ -381,37 +371,31 @@ func (self *Bast) parseType(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *D
 	self.parseFieldList(file, in.TypeParams, val.TypeParams)
 	val.IsAlias = in.Assign.IsValid()
 	out.Put(val.Name, val)
-	return
 }
 
 // parseFieldList parses in field list into FieldMap out.
-func (self *Bast) parseFieldList(file *File, in *ast.FieldList, out *FieldMap) {
+func (self *Parser) parseFieldList(file *File, in *ast.FieldList, out *FieldMap) {
 
 	if in == nil {
 		return
 	}
 
 	for idx, field := range in.List {
-		if field.Names == nil {
-			var key = fmt.Sprintf("%s [%d]", self.printExpr(field.Type), idx)
-			out.Put(key, &Field{
-				Type: self.printExpr(field.Type),
-			})
-			continue
+		var val = NewField(file, "")
+		val.Type = self.printExpr(field.Type)
+		if len(field.Names) > 0 {
+			val.Name = self.printExpr(field.Names[0])
+		} else {
+			val.Name = fmt.Sprintf("unnamed%d", idx)
 		}
-		for _, name := range field.Names {
-			var val = NewField(file, self.printExpr(name))
-			self.parseCommentGroup(field.Doc, &val.Doc)
-			val.Type = self.printExpr(field.Type)
-			val.Tag = self.printExpr(field.Tag)
-			out.Put(val.Name, val)
-		}
+		self.parseCommentGroup(field.Doc, &val.Doc)
+		out.Put(val.Name, val)
 	}
 }
 
 // parseStruct parses a struct declaration in into DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Parser) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var st, ok = in.Type.(*ast.StructType)
 	if !ok {
@@ -429,40 +413,37 @@ func (self *Bast) parseStruct(file *File, g *ast.GenDecl, in *ast.TypeSpec, out 
 	self.parseFieldList(file, in.TypeParams, val.TypeParams)
 
 	out.Put(val.Name, val)
-
-	return
 }
 
 // parseStructField parses a struct field in into a FieldMap out.
-func (self *Bast) parseStructField(file *File, in *ast.Field, out *FieldMap) {
+func (self *Parser) parseStructField(file *File, in *ast.Field, out *FieldMap) {
 
 	var val = NewField(file, "")
+	self.parseCommentGroup(in.Doc, &val.Doc)
+	val.Type = self.printExpr(in.Type)
+	if in.Tag != nil {
+		val.Tag, _ = strutils.UnquoteDouble(in.Tag.Value)
+	}
 
-	// Unnamed field.
+	// Unnamed/Embedded field.
 	if len(in.Names) == 0 {
-		self.parseCommentGroup(in.Doc, &val.Doc)
 		val.Unnamed = true
-		val.Name = self.printExpr(in.Type)
-		val.Type = self.printExpr(in.Type)
-		val.Tag = self.printExpr(in.Tag)
+		val.Name = val.Type
 		out.Put(val.Name, val)
 		return
 	}
 
+	// Named fields.
 	for _, name := range in.Names {
-		self.parseCommentGroup(in.Doc, &val.Doc)
-		val.Name = self.printExpr(name)
-		val.Type = self.printExpr(in.Type)
-		val.Tag = self.printExpr(in.Tag)
-		out.Put(val.Name, val)
+		var f = val.Clone()
+		f.Name = self.printExpr(name)
+		out.Put(f.Name, f)
 	}
-
-	return
 }
 
 // parseStruct parses an interface declaration in into DeclarationMap out.
 // Uses parent GenDecl g docs as doc source.
-func (self *Bast) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
+func (self *Parser) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, out *DeclarationMap) {
 
 	var it, ok = in.Type.(*ast.InterfaceType)
 	if !ok {
@@ -471,26 +452,35 @@ func (self *Bast) parseInterface(file *File, g *ast.GenDecl, in *ast.TypeSpec, o
 
 	var val = NewInterface(file, self.printExpr(in.Name))
 	self.parseCommentGroup(g.Doc, &val.Doc)
+	self.parseCommentGroup(in.Doc, &val.Doc)
 
 	for _, method := range it.Methods.List {
-		if len(method.Names) == 0 {
-			var intf = NewField(file, self.printExpr(method.Type))
+		switch m := method.Type.(type) {
+		case *ast.FuncType:
+			var meth = NewMethod(file, self.printExpr(method.Names[0]))
+			self.parseCommentGroup(method.Doc, &meth.Doc)
+			self.parseFieldList(file, m.Params, meth.Params)
+			self.parseFieldList(file, m.Results, meth.Results)
+			val.Methods.Put(meth.Name, meth)
+		default:
+			// Embedded interface.
+			var intf = NewInterface(file, self.printExpr(method.Type))
 			self.parseCommentGroup(method.Doc, &intf.Doc)
-			intf.Type = self.printExpr(method.Type)
-			intf.Unnamed = true
-			val.Interfaces.Put(intf.Type, intf)
-		} else {
-			var m = NewMethod(file, self.printExpr(method.Names[0]))
-			self.parseCommentGroup(method.Doc, &m.Doc)
-			var ft = method.Type.(*ast.FuncType)
-			self.parseFieldList(file, ft.TypeParams, m.TypeParams)
-			self.parseFieldList(file, ft.Params, m.Params)
-			self.parseFieldList(file, ft.Results, m.Results)
-			val.Methods.Put(m.Name, m)
+			val.Interfaces.Put(intf.Name, intf)
 		}
 	}
 
-	out.Put(val.Name, val)
+	self.parseFieldList(file, in.TypeParams, val.TypeParams)
 
-	return
+	out.Put(val.Name, val)
+}
+
+// printExpr prints an ast.Node.
+func (self *Parser) printExpr(in any) (s string) {
+	if in == nil || reflect.ValueOf(in).IsNil() {
+		return ""
+	}
+	var buf = bytes.Buffer{}
+	self.p.Fprint(&buf, self.fset, in)
+	return buf.String()
 }

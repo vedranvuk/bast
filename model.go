@@ -383,6 +383,21 @@ type Field struct {
 	Pointer bool
 }
 
+// Clone returns a clone of the field.
+func (self *Field) Clone() *Field {
+	return &Field{
+		Model: Model{
+			Doc:  self.Doc,
+			Name: self.Name,
+			file: self.file,
+		},
+		Type:    self.Type,
+		Tag:     self.Tag,
+		Unnamed: self.Unnamed,
+		Pointer: self.Pointer,
+	}
+}
+
 // FieldMap maps fields by their name in parse order.
 type FieldMap = maps.OrderedMap[string, *Field]
 
@@ -458,7 +473,9 @@ type Interface struct {
 	// Interface is a list of inherited interfaces.
 	//
 	// Map is keyed by the embeded interface type name.
-	Interfaces *FieldMap
+	Interfaces *InterfaceMap
+	// TypeParams are type parameters.
+	TypeParams *FieldMap
 }
 
 // NewPackage returns a new *Package.
@@ -575,6 +592,10 @@ func NewInterface(file *File, name string) *Interface {
 			file: file,
 		},
 		Methods:    maps.MakeOrderedMap[string, *Method](),
-		Interfaces: maps.MakeOrderedMap[string, *Field](),
+		Interfaces: maps.MakeOrderedMap[string, *Interface](),
+		TypeParams: maps.MakeOrderedMap[string, *Field](),
 	}
 }
+
+// InterfaceMap maps interfaces by their name in parse order.
+type InterfaceMap = maps.OrderedMap[string, *Interface]

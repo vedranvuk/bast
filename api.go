@@ -11,9 +11,7 @@
 package bast
 
 import (
-	"bytes"
 	"go/types"
-	"reflect"
 	"strings"
 )
 
@@ -402,14 +400,4 @@ func allDecls[T declarations](p *PackageMap) (out []T) {
 		}
 	}
 	return
-}
-
-// printExpr prints an ast.Node.
-func (self *Bast) printExpr(in any) (s string) {
-	if in == nil || reflect.ValueOf(in).IsNil() {
-		return ""
-	}
-	var buf = bytes.Buffer{}
-	self.p.Fprint(&buf, self.fset, in)
-	return buf.String()
 }
