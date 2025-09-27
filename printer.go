@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// This file contains functions for printing bast.
+// Package bast provides utilities for printing the Bast model in a readable format.
 
 package bast
 
@@ -12,12 +12,12 @@ import (
 	"text/tabwriter"
 )
 
-// Print prints bast to writer w using the default printer.
+// Print writes a human-readable representation of bast to w using the default printer configuration.
 func Print(w io.Writer, bast *Bast) {
 	DefaultPrinter().Print(w, bast)
 }
 
-// DefaultPrinter returns the default print configuration.
+// DefaultPrinter returns a Printer with all printing options enabled and tab indentation.
 func DefaultPrinter() *Printer {
 	return &Printer{
 		PrintDoc:        true,
@@ -33,21 +33,31 @@ func DefaultPrinter() *Printer {
 	}
 }
 
-// Printer holds the configuration for printing a Bast model.
+// Printer configures the formatting options for printing a Bast model.
 type Printer struct {
-	PrintDoc        bool
-	PrintComments   bool
-	PrintConsts     bool
-	PrintVars       bool
-	PrintTypes      bool
-	PrintFuncs      bool
-	PrintMethods    bool
-	PrintStructs    bool
+	// PrintDoc, if true, includes documentation comments.
+	PrintDoc bool
+	// PrintComments, if true, includes non-doc comments.
+	PrintComments bool
+	// PrintConsts, if true, includes constants.
+	PrintConsts bool
+	// PrintVars, if true, includes variables.
+	PrintVars bool
+	// PrintTypes, if true, includes type declarations.
+	PrintTypes bool
+	// PrintFuncs, if true, includes functions.
+	PrintFuncs bool
+	// PrintMethods, if true, includes methods.
+	PrintMethods bool
+	// PrintStructs, if true, includes structs.
+	PrintStructs bool
+	// PrintInterfaces, if true, includes interfaces.
 	PrintInterfaces bool
-	Indentation     string
+	// Indentation is the string used for indenting output (default "\t").
+	Indentation string
 }
 
-// Print prints the Bast model to the writer w.
+// Print writes the Bast model to w using tabwriter for alignment.
 func (self *Printer) Print(w io.Writer, bast *Bast) {
 	var wr = tabwriter.NewWriter(w, 2, 2, 2, ' ', 0)
 	for _, pkg := range bast.packages.Values() {

@@ -17,64 +17,43 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// Config configures [Load].
+// Config configures the loading and parsing behavior of Load.
 type Config struct {
 
-	// -- Build system configuration --
-
-	// Dir is the directory in which to run the build system's query tool
-	// that provides information about the packages.
-	// If Dir is empty, the tool is run in the current directory.
+	// Dir is the base directory for the build system's query tool.
+	// If empty, the current directory is used.
 	//
-	// Package patterns given to [ParsePackages] are relative to this directory.
-	//
-	// Default is "." which sets the build dir to current directory.
+	// Package patterns in Load are relative to this directory.
+	// Default is ".".
 	Dir string `json:"dir,omitempty"`
 
-	// BuildFlags is a list of command-line flags to be passed through to
-	// the build system's query tool.
+	// BuildFlags are additional command-line flags passed to the build system's query tool.
 	BuildFlags []string `json:"buildFlags,omitempty"`
 
-	// Env is the environment to use when invoking the build system's query tool.
-	// If Env is nil, the current environment is used.
-	// As in os/exec's Cmd, only the last value in the slice for
-	// each environment key is used. To specify the setting of only
-	// a few variables, append to the current environment, as in:
+	// Env is the environment variables used when invoking the build system's query tool.
+	// If nil, the current environment is used.
+	// Only the last value for each key is used.
 	//
-	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
-	//
+	// To set specific variables, append to os.Environ():
+	//     opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
 	Env []string `json:"env,omitempty"`
 
-	// If Tests is set, the loader includes not just the packages
-	// matching a particular pattern but also any related test packages,
-	// including test-only variants of the package and the test executable.
-	//
-	// For example, when using the go command, loading "fmt" with Tests=true
-	// returns four packages, with IDs "fmt" (the standard package),
-	// "fmt [fmt.test]" (the package as compiled for the test),
-	// "fmt_test" (the test functions from source files in package fmt_test),
-	// and "fmt.test" (the test binary).
-	//
-	// In build systems with explicit names for tests,
-	// setting Tests may have no effect.
+	// Tests, if true, includes related test packages when loading.
+	// This includes test variants of the package and the test executable.
 	Tests bool `json:"tests,omitempty"`
 
-	// -- Bast configuration --
-
-	// TypeChecking enables type checking to enable few type resolution
-	// related utilities like [Bast.ResolveBasicType].
-	//
-	// Default: true
+	// TypeChecking enables type checking during loading, required for type resolution utilities
+	// like Bast.ResolveBasicType.
+	// Default is true.
 	TypeChecking bool `json:"typeChecking,omitempty"`
 
-	// TypeCheckingErrors if enabled will return errors during [Load] if
-	// typechecking or parsed packages failed.
-	//
-	// Default: true
+	// TypeCheckingErrors, if true, causes Load to return an error if type checking fails
+	// or if any loaded package has errors.
+	// Default is true.
 	TypeCheckingErrors bool `json:"typeCheckingErrors,omitempty"`
 }
 
-// DefaultConfig returns the default configuration.
+// DefaultConfig returns a Config with default values.
 func DefaultConfig() *Config {
 	return &Config{
 		Dir:                ".",
@@ -83,14 +62,14 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Default is an alias for [DefaultConfig].
+// Default is an alias for DefaultConfig.
 func Default() *Config { return DefaultConfig() }
 
-// Load loads packages specified by pattern and returns a *Bast of it
-// or an error.
+// Load loads the Go packages matching the given patterns and returns a Bast representation.
 //
-// An optional config configures the underlying go build system
-// and other details. See [Config].
+// cfg configures the loading process; if nil, DefaultConfig is used.
+//
+// Patterns follow the same syntax as go list or go build (e.g., "./...", "github.com/user/repo").
 func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 
 	if config == nil {
@@ -120,14 +99,14 @@ func Load(config *Config, patterns ...string) (bast *Bast, err error) {
 	return NewParser(config).Parse(pkgs)
 }
 
-// Parser transforms go/packages into the bast model.
+// Parser transforms loaded go/packages into the bast model.
 type Parser struct {
 	config *Config
 	fset   *token.FileSet
 	p      *printer.Config
 }
 
-// NewParser returns a new Parser.
+// NewParser creates a new Parser with the given config.
 func NewParser(config *Config) *Parser {
 	var p = &Parser{
 		config: config,
@@ -137,7 +116,9 @@ func NewParser(config *Config) *Parser {
 	return p
 }
 
-// Parse is the main entry point for the parser.
+// Parse parses the given loaded packages into a Bast.
+//
+// It returns an error if parsing fails or if TypeCheckingErrors is true and any package has errors.
 func (self *Parser) Parse(pkgs []*packages.Package) (*Bast, error) {
 	var bast = new()
 	bast.config = self.config
