@@ -362,15 +362,21 @@ func (self *Parser) parseFieldList(file *File, in *ast.FieldList, out *FieldMap)
 	}
 
 	for idx, field := range in.List {
-		var val = NewField(file, "")
-		val.Type = self.printExpr(field.Type)
 		if len(field.Names) > 0 {
-			val.Name = self.printExpr(field.Names[0])
+			// Handle multiple names in one field (e.g., T, U any)
+			for _, name := range field.Names {
+				var val = NewField(file, self.printExpr(name))
+				val.Type = self.printExpr(field.Type)
+				self.parseCommentGroup(field.Doc, &val.Doc)
+				out.Put(val.Name, val)
+			}
 		} else {
-			val.Name = fmt.Sprintf("unnamed%d", idx)
+			// Handle unnamed field
+			var val = NewField(file, fmt.Sprintf("unnamed%d", idx))
+			val.Type = self.printExpr(field.Type)
+			self.parseCommentGroup(field.Doc, &val.Doc)
+			out.Put(val.Name, val)
 		}
-		self.parseCommentGroup(field.Doc, &val.Doc)
-		out.Put(val.Name, val)
 	}
 }
 

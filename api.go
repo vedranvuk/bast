@@ -49,6 +49,47 @@ func (self *Bast) PackageByPath(pkgPath string) (p *Package) {
 // This method requires Config.TypeChecking to be enabled.
 func (self *Bast) ResolveBasicType(typeName string) string {
 
+	// Handle qualified names (e.g., "pkg.Type")
+	if pkg, name, hasSelector := strings.Cut(typeName, "."); hasSelector {
+		// Try to resolve the qualified type by finding a package that imports it
+		for _, p := range self.packages.Values() {
+			for _, file := range p.Files.Values() {
+				for _, imp := range file.Imports.Values() {
+					// Check if this import matches the package selector
+					var importMatches bool
+					if imp.Name != "" {
+						// Aliased import - check alias name
+						importMatches = imp.Name == pkg
+					} else {
+						// Direct import - check base package name
+						importMatches = imp.Base() == pkg
+					}
+					
+					if importMatches {
+						// Found matching import, now look for the type in that package
+						if targetPkg, ok := self.packages.Get(imp.Path); ok {
+							if o := targetPkg.pkg.Types.Scope().Lookup(name); o != nil {
+								var t types.Type = o.Type()
+								for {
+									if t.Underlying() == nil {
+										return t.String()
+									}
+									if t.Underlying() == t {
+										break
+									}
+									t = t.Underlying()
+								}
+								return t.String()
+							}
+						}
+					}
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle unqualified names
 	var o types.Object
 	for _, p := range self.packages.Values() {
 		if o = p.pkg.Types.Scope().Lookup(typeName); o != nil {
@@ -60,6 +101,7 @@ func (self *Bast) ResolveBasicType(typeName string) string {
 		case "bool", "byte",
 			"int", "int8", "int16", "int32", "int64",
 			"uint", "uint8", "uint16", "uint32", "uint64",
+			"float32", "float64",
 			"complex64", "complex128", "string":
 			return tn
 		case "[]string":
@@ -127,18 +169,16 @@ func (self *Bast) MethodSet(pkgPath, typeName string) (out []*Method) {
 // in the package with path pkgPath.
 func (self *Bast) FieldNames(pkgPath, structName string) (out []string) {
 
-	for _, pkg := range self.packages.Values() {
+	var pkg, ok = self.packages.Get(pkgPath)
+	if !ok {
+		return
+	}
 
-		if pkg.Name != pkgPath {
-			continue
-		}
-
-		for _, file := range pkg.Files.Values() {
-			for _, decl := range file.Declarations.Values() {
-				if v, ok := decl.(*Struct); ok {
-					for _, field := range v.Fields.Values() {
-						out = append(out, field.Name)
-					}
+	for _, file := range pkg.Files.Values() {
+		for _, decl := range file.Declarations.Values() {
+			if v, ok := decl.(*Struct); ok && v.Name == structName {
+				for _, field := range v.Fields.Values() {
+					out = append(out, field.Name)
 				}
 			}
 		}

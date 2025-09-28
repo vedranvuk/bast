@@ -167,17 +167,28 @@ func (self *File) ImportSpecFromSelector(selectorExpr string) *ImportSpec {
 	if !selector {
 		return nil
 	}
+	
+	// First pass: try to find exact alias match
 	for _, imp := range self.Imports.Values() {
-		if imp.Name != "" {
-			if imp.Name == pkg {
-				return imp
-			}
-		} else {
-			if imp.Base() == pkg {
-				return imp
-			}
+		if imp.Name != "" && imp.Name == pkg {
+			return imp
 		}
 	}
+	
+	// Second pass: try to find direct import (no alias) with matching base name
+	for _, imp := range self.Imports.Values() {
+		if imp.Name == "" && imp.Base() == pkg {
+			return imp
+		}
+	}
+	
+	// Third pass: try to find any import with matching base name as fallback
+	for _, imp := range self.Imports.Values() {
+		if imp.Base() == pkg {
+			return imp
+		}
+	}
+	
 	return nil
 }
 
@@ -309,6 +320,7 @@ func (self *Model) ResolveBasicType(typeName string) string {
 		case "bool", "byte",
 			"int", "int8", "int16", "int32", "int64",
 			"uint", "uint8", "uint16", "uint32", "uint64",
+			"float32", "float64",
 			"complex64", "complex128", "string":
 			return tn
 		default:

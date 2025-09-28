@@ -121,7 +121,7 @@ func TestParserFunctionParsing(t *testing.T) {
 		{"TestFunc3", 0, 2, false},
 		{"TestFunc4", 0, 1, false},
 		{"TestFunc5", 0, 2, false},
-		{"TestFunc6", 0, 1, false}, // Multiple named results of same type are parsed as one
+		{"TestFunc6", 0, 3, false}, // Multiple named results of same type are now parsed correctly as separate fields
 		{"TestFunc7", 1, 1, true},
 	}
 
@@ -586,14 +586,10 @@ func TestFieldNames(t *testing.T) {
 		t.Fatalf("Failed to load: %v", err)
 	}
 
-	// Note: The current implementation seems to have a bug - it uses pkg.Name instead of pkg.Path
-	// So we test with the package name, not path
-	fieldNames := bast.FieldNames("models", "TestStruct2")
-	
-	if len(fieldNames) == 0 {
-		// Try with correct logic (this tests the actual current behavior)
-		fieldNames = bast.FieldNames("models", "TestStruct2")
-	}
+	modelsPath := "github.com/vedranvuk/bast/_testproject/pkg/models"
+
+	// Test with correct package path and struct name
+	fieldNames := bast.FieldNames(modelsPath, "TestStruct2")
 	
 	expectedFields := []string{"CustomType", "NamedCustomType", "FooField", "BarField", "Baz", "Bat"}
 	
